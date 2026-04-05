@@ -1,8 +1,19 @@
 from botocore.exceptions import BotoCoreError, ClientError
 from django.contrib import admin, messages
+from django.db import transaction
 from django.http import HttpResponseRedirect
 
 from .models import FreeContent, Match, PremiumContent
+
+
+def _format_storage_error(exc: Exception) -> str:
+	if isinstance(exc, ClientError):
+		error = exc.response.get("Error", {})
+		code = error.get("Code", "ClientError")
+		message = error.get("Message", "Storage request failed")
+		return f"Storage upload failed ({code}): {message}"
+
+	return f"Storage upload failed ({exc.__class__.__name__})."
 
 
 class FreeContentInline(admin.TabularInline):
@@ -44,11 +55,12 @@ class MatchAdmin(admin.ModelAdmin):
 
 	def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
 		try:
-			return super().changeform_view(request, object_id, form_url, extra_context)
-		except (ClientError, BotoCoreError):
+			with transaction.atomic():
+				return super().changeform_view(request, object_id, form_url, extra_context)
+		except (ClientError, BotoCoreError) as exc:
 			self.message_user(
 				request,
-				"Unable to save uploaded content to storage. Please verify your AWS S3 credentials and bucket permissions, then try again.",
+				_format_storage_error(exc),
 				level=messages.ERROR,
 			)
 			return HttpResponseRedirect(request.path)
