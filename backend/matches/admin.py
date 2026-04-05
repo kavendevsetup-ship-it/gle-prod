@@ -1,4 +1,6 @@
-from django.contrib import admin
+from botocore.exceptions import BotoCoreError, ClientError
+from django.contrib import admin, messages
+from django.http import HttpResponseRedirect
 
 from .models import FreeContent, Match, PremiumContent
 
@@ -39,6 +41,17 @@ class MatchAdmin(admin.ModelAdmin):
 			},
 		),
 	)
+
+	def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+		try:
+			return super().changeform_view(request, object_id, form_url, extra_context)
+		except (ClientError, BotoCoreError):
+			self.message_user(
+				request,
+				"Unable to save uploaded content to storage. Please verify your AWS S3 credentials and bucket permissions, then try again.",
+				level=messages.ERROR,
+			)
+			return HttpResponseRedirect(request.path)
 
 
 @admin.register(FreeContent)
