@@ -10,8 +10,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Frontend",
-  description: "Minimal Next.js frontend foundation",
+  title: "Grand League Expert",
+  description: "Grand League Expert delivers data-driven cricket insights, matchup analysis, and premium tools to optimize your fantasy strategy.",
+  icons: {
+    icon: "/logo.jpg",
+  },
 };
 
 export default function RootLayout({
