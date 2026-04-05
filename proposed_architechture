@@ -1,0 +1,99 @@
+Proposed component architecture for the new frontend, based on deep reverse-engineering of frontend_old, without implementation.
+
+**1. Folder Structure**
+
+| Folder | Responsibility | Minimal scalable contents |
+|---|---|---|
+| /components/ui | Atomic primitives and style-safe building blocks | button.tsx, badge.tsx, input.tsx, checkbox.tsx, tabs.tsx, card.tsx, modal.tsx, spinner.tsx, index.ts |
+| /components/shared | Cross-page composites built from ui primitives | page-container.tsx, section-shell.tsx, app-header.tsx, app-footer.tsx, floating-section-nav.tsx, match-card.tsx, status-badge.tsx, premium-gate.tsx, payment-modal.tsx, empty-state.tsx, error-state.tsx, social-link.tsx, index.ts |
+| /components/sections | Route-level section assemblies only | landing/hero-section.tsx, landing/auth-cta-section.tsx, landing/social-section.tsx, dashboard/welcome-section.tsx, dashboard/for-you-section.tsx, dashboard/expert-analysis-section.tsx, dashboard/coming-soon-section.tsx, matches/matches-hero-section.tsx, matches/matches-tabs-section.tsx, matches/matches-grid-section.tsx, index.ts |
+
+Design rule: ui has no domain logic, shared has reusable domain-light logic, sections contains domain-aware page chunks.
+
+---
+
+**2. Component Hierarchy**
+
+1. Atomic components in /components/ui  
+Button, Badge, Input, Checkbox, Tabs, Card, ModalBase, Spinner.
+
+2. Composite components in /components/shared  
+SectionShell, PageContainer, AppHeader, AppFooter, FloatingSectionNav, MatchCard, PremiumGate, PaymentModal, StatusBadge, EmptyState, ErrorState.
+
+3. Section components in /components/sections  
+Landing sections, Dashboard sections, Matches sections.
+
+4. Route pages compose sections only  
+Pages should orchestrate data and section order, not render primitive markup directly.
+
+Route composition target:
+- / uses Landing sections only.
+- /dashboard and /dashboard-new use Dashboard sections + FloatingSectionNav.
+- /matches uses Matches sections + shared shell components.
+- /dashboard-old can be handled through an optional legacy adapter module if needed later.
+
+---
+
+**3. Naming Conventions**
+
+- Component names: PascalCase.
+- File names: kebab-case.
+- Props interfaces: ComponentNameProps.
+- Sections always end with Section.
+- Reusable card-like composites end with Card.
+- Dialogs end with Modal.
+- Domain state wrappers end with Container only when they own fetch/state.
+- Avoid old versus enhanced suffixes in new architecture. Use folder scoping and variant props instead.
+- Use variant, size, tone props for styling differences rather than duplicating components.
+
+---
+
+**4. Props Design (Clean + Reusable)**
+
+- Every ui and shared component accepts className.
+- Visual components use a constrained variant API: variant, size, tone, disabled.
+- Controlled pattern for interactive components:
+  - Tabs: value, onValueChange
+  - Modal: open, onOpenChange
+  - Inputs: value, onChange
+- Async-aware sections use a unified state shape:
+  - loading, error, data, onRetry
+- Event props are intention-based, not DOM-based:
+  - onUpgrade, onSelectMatch, onOpenDetails, onSubscribe
+- Data components receive typed domain objects, not many loose scalar props.
+- Avoid boolean explosion. Prefer enums or variant unions where states are mutually exclusive.
+- Keep page sections shallow: sections get prepared data from page-level hooks, not direct API clients.
+
+---
+
+**5. Reuse Mapping Across Pages**
+
+| Component | Landing | Dashboard | Matches | Future Premium page |
+|---|---|---|---|---|
+| Button, Badge, Card, Input, Spinner | Yes | Yes | Yes | Yes |
+| ModalBase | Yes | Yes | Yes | Yes |
+| SectionShell, PageContainer | Yes | Yes | Yes | Yes |
+| AppHeader, AppFooter | Optional | Optional | Yes | Optional |
+| FloatingSectionNav | No | Yes | No | No |
+| MatchCard | No | Yes | Yes | Optional |
+| StatusBadge | No | Yes | Yes | Yes |
+| PremiumGate | No | Yes | Optional | Yes |
+| PaymentModal | No | Yes | No | Yes |
+| EmptyState, ErrorState | Optional | Yes | Yes | Yes |
+| SocialLink | Yes | Optional | No | Optional |
+
+Minimal first reusable set to create first:
+Button, Card, Badge, Input, ModalBase, Spinner, SectionShell, MatchCard, PremiumGate, PaymentModal, FloatingSectionNav.
+
+---
+
+**Source Alignment Used**
+
+- Route truth and auth boundary from App.tsx
+- Legacy layout shell from index.tsx
+- Enhanced floating nav from ModernNavbar.tsx
+- Enhanced dashboard section composition from CompleteReconstructedDashboard.tsx
+- Legacy dashboard composition from DashboardMain.tsx
+- UI variant system from index.tsx
+- Modal patterns from SimpleModal.tsx and PaymentModal.tsx
+- Token and motion systems from tailwind.config.js, craft-design-system.css, and craftAnimationTiming.ts
