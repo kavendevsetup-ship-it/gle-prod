@@ -77,7 +77,7 @@ function getStoredAuthToken(): string | null {
 export async function bridgeBackendAuth(
   payload: BackendAuthBridgePayload
 ): Promise<BackendAuthBridgeResponse> {
-  const response = await fetch(buildApiUrl("auth/google/"), {
+  const response = await fetch(buildApiUrl("backend-auth/google/"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -9,8 +9,20 @@ export const authOptions: NextAuthConfig = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
+  secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
+  },
+  cookies: {
+    sessionToken: {
+      name: "__Secure-next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+      },
+    },
   },
   pages: {
     signIn: "/",
@@ -20,7 +32,7 @@ export const authOptions: NextAuthConfig = {
   callbacks: {
     async redirect({ url, baseUrl }) {
       console.info("[NextAuth][redirect]", { url, baseUrl });
-      return baseUrl;
+      return `${baseUrl}/dashboard`;
     },
     authorized({ auth, request }) {
       const pathname = request.nextUrl.pathname;
