@@ -1,0 +1,166 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-white: #ffffff;
+  --color-orange: #ff7a18;
+  --color-red: #ff4d4d;
+
+  --background: var(--color-white);
+  --foreground: #111827;
+  --card: var(--color-white);
+  --card-foreground: #111827;
+  --popover: var(--color-white);
+  --popover-foreground: #111827;
+  --primary: var(--color-orange);
+  --primary-foreground: var(--color-white);
+  --secondary: #fff3e8;
+  --secondary-foreground: #7c2d12;
+  --muted: #f4f4f5;
+  --muted-foreground: #52525b;
+  --accent: #fff3e8;
+  --accent-foreground: #7c2d12;
+  --destructive: var(--color-red);
+  --destructive-foreground: var(--color-white);
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: var(--color-orange);
+  --radius: 0.625rem;
+  --radius-md: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply h-full font-sans;
+  }
+
+  body {
+    @apply min-h-full;
+    @apply bg-background text-foreground;
+    @apply antialiased;
+  }
+}
+
+/* Legacy landing utility classes (copied from frontend_old/src/styles/index.css) */
+.animated-gradient-text {
+  background: linear-gradient(
+    45deg,
+    #f97316,
+    #ef4444,
+    #ec4899,
+    #8b5cf6,
+    #3b82f6,
+    #06b6d4,
+    #10b981,
+    #f59e0b,
+    #f97316
+  );
+  background-size: 400% 400%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientShift 4s ease-in-out infinite;
+}
+
+@keyframes gradientShift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 100% 50%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  75% {
+    background-position: 0% 100%;
+  }
+}
+
+.sparkle-enhanced {
+  animation: sparkleEnhanced 3s ease-in-out infinite;
+}
+
+@keyframes sparkleEnhanced {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+    opacity: 0.8;
+  }
+  25% {
+    transform: rotate(90deg) scale(1.1);
+    opacity: 1;
+  }
+  50% {
+    transform: rotate(180deg) scale(0.9);
+    opacity: 0.9;
+  }
+  75% {
+    transform: rotate(270deg) scale(1.05);
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+
+.float-animation {
+  animation: float 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Legacy modal utility classes (copied from frontend_old/src/styles/modal-system.css) */
+.modal-open {
+  overflow: hidden;
+  padding-right: 0;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.6) rgba(243, 244, 246, 0.3);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: rgba(243, 244, 246, 0.3);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.6);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 114, 128, 0.8);
+}
