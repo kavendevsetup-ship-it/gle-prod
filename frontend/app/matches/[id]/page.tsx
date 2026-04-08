@@ -146,7 +146,7 @@ function PremiumContentItem({ item }: { item: PremiumContentApiItem }) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
           <span className="px-3 py-1 rounded-full text-xs font-medium border bg-yellow-100 text-yellow-800 border-yellow-200">
-            PREMIUM
+            KAIRO
           </span>
         </div>
       </div>
@@ -345,16 +345,16 @@ export default function MatchDetailsPage() {
 
                   <div className="absolute inset-0 rounded-2xl bg-white/50 backdrop-blur-[1.5px] flex items-center justify-center p-4 sm:p-6">
                     <div className="w-full max-w-md rounded-2xl bg-gradient-to-br from-white to-orange-50 border border-orange-200/70 shadow-2xl p-6 sm:p-8 text-center">
-                      <p className="text-sm sm:text-base font-semibold text-orange-700 mb-2">Premium Insights Locked</p>
-                      <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-3">Unlock KAIRO Analysis and Teams</h3>
+                      <p className="text-sm sm:text-base font-semibold text-orange-700 mb-2">Advanced Analysis Locked</p>
+                      <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-3">Unlock KAIRO Analysis & Teams</h3>
                       <p className="text-sm sm:text-base text-gray-600 mb-6">
-                        Unlock captain picks, differential teams, and expert match analysis.
+                        Unlock captain picks, differential teams, and advanced analysis.
                       </p>
                       <button
                         onClick={handleUnlockPremium}
                         className="w-full bg-gradient-primary text-white py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
                       >
-                        Unlock Premium for ₹299
+                        Unlock for ₹299
                       </button>
                     </div>
                   </div>
@@ -366,7 +366,7 @@ export default function MatchDetailsPage() {
               <div className="flex items-center justify-between mb-4 sm:mb-5">
                 <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Match Analysis &amp; GL Team</h2>
                 <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-green-100 text-green-700 border border-green-200">
-                  FREE
+                  GL Analysis
                 </span>
               </div>
 
