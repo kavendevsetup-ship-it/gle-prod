@@ -195,8 +195,16 @@ export const LandingPage: React.FC = () => {
               variants={fadeInUp}
             >
               <div className="absolute inset-0 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 shadow-lg" />
-              <p className="relative text-lg sm:text-xl md:text-2xl lg:text-3xl text-gray-700 py-6 px-8 max-w-5xl mx-auto leading-relaxed">
-                KAIRO Intelligence System is a proprietary framework combining data analytics, real-time insights, and pattern intelligence to deliver high-probability fantasy outcomes.
+              <p className="relative text-base sm:text-lg md:text-xl lg:text-2xl text-gray-700 py-6 px-8 max-w-5xl mx-auto leading-relaxed sm:leading-loose">
+                <span className="font-semibold bg-gradient-to-r from-orange-600 via-red-500 to-amber-500 bg-clip-text text-transparent">
+                  KAIRO Intelligence System
+                </span>{" "}
+                is a proprietary framework combining{" "}
+                <span className="font-semibold text-orange-600">data analytics</span>,{" "}
+                <span className="font-semibold text-red-600">real-time insights</span>, and{" "}
+                <span className="font-semibold text-amber-600">pattern intelligence</span>{" "}
+                to deliver{" "}
+                <span className="font-semibold text-gray-900">high-probability fantasy outcomes.</span>
               </p>
             </motion.div>
 
