@@ -310,7 +310,7 @@ export default function MatchDetailsPage() {
           <>
             <section>
               <div className="flex items-center justify-between mb-4 sm:mb-5">
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Premium Content</h2>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">KAIRO Analysis &amp; KAIRO Teams</h2>
                 <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-gradient-primary text-white shadow-lg">
                   {access ? "Unlocked ✅" : "PREMIUM"}
                 </span>
@@ -346,7 +346,7 @@ export default function MatchDetailsPage() {
                   <div className="absolute inset-0 rounded-2xl bg-white/50 backdrop-blur-[1.5px] flex items-center justify-center p-4 sm:p-6">
                     <div className="w-full max-w-md rounded-2xl bg-gradient-to-br from-white to-orange-50 border border-orange-200/70 shadow-2xl p-6 sm:p-8 text-center">
                       <p className="text-sm sm:text-base font-semibold text-orange-700 mb-2">Premium Insights Locked</p>
-                      <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-3">Unlock Expert Analysis & GL Teams</h3>
+                      <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-3">Unlock KAIRO Analysis and Teams</h3>
                       <p className="text-sm sm:text-base text-gray-600 mb-6">
                         Unlock captain picks, differential teams, and expert match analysis.
                       </p>
@@ -364,7 +364,7 @@ export default function MatchDetailsPage() {
 
             <section className="mt-12 sm:mt-14 md:mt-16">
               <div className="flex items-center justify-between mb-4 sm:mb-5">
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Free Content</h2>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Match Analysis &amp; GL Team</h2>
                 <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-green-100 text-green-700 border border-green-200">
                   FREE
                 </span>

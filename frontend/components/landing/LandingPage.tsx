@@ -196,9 +196,7 @@ export const LandingPage: React.FC = () => {
             >
               <div className="absolute inset-0 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 shadow-lg" />
               <p className="relative text-lg sm:text-xl md:text-2xl lg:text-3xl text-gray-700 py-6 px-8 max-w-5xl mx-auto leading-relaxed">
-                Master the art of fantasy cricket with{' '}
-                <span className="font-semibold text-orange-600">expert analysis</span> and{' '}
-                <span className="font-semibold text-red-600">real-time insights</span>
+                KAIRO Intelligence System is a proprietary framework combining data analytics, real-time insights, and pattern intelligence to deliver high-probability fantasy outcomes.
               </p>
             </motion.div>
 

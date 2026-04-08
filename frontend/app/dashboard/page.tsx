@@ -186,7 +186,7 @@ function EnhancedWelcomeHeader({ userName, isPremium }: { userName: string; isPr
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4, duration: 0.6 }}
               >
-                Ready to explore live cricket insights?
+                Welcome to KAIRO Intelligence System
               </motion.p>
             </motion.div>
           </div>

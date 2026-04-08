@@ -217,7 +217,7 @@ export default function MatchesPage() {
 
         <section className="mb-10 sm:mb-12 md:mb-14">
           <div className="flex items-center justify-between mb-4 sm:mb-5">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Free Content</h2>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Match Analysis &amp; GL Team</h2>
             <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-green-100 text-green-700 border border-green-200">
               FREE
             </span>
@@ -232,7 +232,7 @@ export default function MatchesPage() {
 
         <section>
           <div className="flex items-center justify-between mb-4 sm:mb-5">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Premium Content</h2>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">KAIRO Analysis &amp; KAIRO Teams</h2>
             <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-gradient-primary text-white shadow-lg">
               PREMIUM
             </span>
