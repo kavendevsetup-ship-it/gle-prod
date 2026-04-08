@@ -21,6 +21,20 @@ class MatchPurchase(models.Model):
 		on_delete=models.CASCADE,
 		related_name="purchases",
 		verbose_name="Match",
+		null=True,
+		blank=True,
+	)
+	is_subscription = models.BooleanField("Is Subscription", default=False)
+	subscription_start = models.DateTimeField(
+		"Subscription Start",
+		null=True,
+		blank=True,
+	)
+	subscription_end = models.DateTimeField(
+		"Subscription End",
+		null=True,
+		blank=True,
+		db_index=True,
 	)
 	payment_id = models.CharField("Payment ID", max_length=128)
 	amount = models.DecimalField("Amount", max_digits=10, decimal_places=2)
@@ -37,4 +51,8 @@ class MatchPurchase(models.Model):
 		verbose_name_plural = "Match Purchases"
 
 	def __str__(self) -> str:
-		return f"{self.user} - {self.match.match_name} ({self.status})"
+		if self.is_subscription:
+			return f"{self.user} - Monthly Subscription ({self.status})"
+
+		match_name = self.match.match_name if self.match else "Match"
+		return f"{self.user} - {match_name} ({self.status})"

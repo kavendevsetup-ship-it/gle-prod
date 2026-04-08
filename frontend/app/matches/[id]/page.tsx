@@ -172,10 +172,21 @@ export default function MatchDetailsPage() {
   const [freeContent, setFreeContent] = useState<FreeContentApiItem[]>([]);
   const [premiumContent, setPremiumContent] = useState<PremiumContentApiItem[]>([]);
   const [access, setAccess] = useState(false);
+  const [isSubscriptionAccess, setIsSubscriptionAccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const initiatePayment = async (matchIdToUnlock: number, matchName: string) => {
+  const refreshAccess = async (targetMatchId: number | string) => {
+    const accessResult = await getMatchAccess(targetMatchId);
+    setAccess(!!(accessResult.has_access ?? accessResult.access));
+    setIsSubscriptionAccess(!!accessResult.is_subscription);
+  };
+
+  const initiatePayment = async (
+    planType: "match" | "subscription",
+    matchIdToUnlock?: number,
+    matchName?: string
+  ) => {
     try {
       setError(null);
 
@@ -185,7 +196,11 @@ export default function MatchDetailsPage() {
         return;
       }
 
-      const order = await createPaymentOrder(matchIdToUnlock);
+      const order = await createPaymentOrder(
+        planType === "match"
+          ? { type: "match", match_id: matchIdToUnlock }
+          : { type: "subscription" }
+      );
       const razorpayKey = order.key || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
       if (!razorpayKey) {
         alert("Unable to load payment gateway. Please try again.");
@@ -198,18 +213,25 @@ export default function MatchDetailsPage() {
         currency: order.currency,
         order_id: order.order_id,
         name: "Grand League Expert",
-        description: matchName,
+        description:
+          planType === "subscription" ? "Monthly KAIRO Access" : matchName,
         handler: async (response: RazorpayHandlerResponse) => {
           try {
             const verify = await verifyPayment({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              match_id: matchIdToUnlock,
+              type: planType,
+              ...(planType === "match" && matchIdToUnlock
+                ? { match_id: matchIdToUnlock }
+                : {}),
             });
 
             if (verify.success) {
-              setAccess(true);
+              if (matchId) {
+                await refreshAccess(matchId);
+              }
+              setIsSubscriptionAccess(!!verify.is_subscription);
             } else {
               setError("Verification failed");
               alert("Verification failed");
@@ -247,7 +269,11 @@ export default function MatchDetailsPage() {
       return;
     }
 
-    await initiatePayment(match.id, match.match_name);
+    await initiatePayment("match", match.id, match.match_name);
+  };
+
+  const handleUnlockSubscription = async () => {
+    await initiatePayment("subscription");
   };
 
   useEffect(() => {
@@ -266,7 +292,8 @@ export default function MatchDetailsPage() {
         setMatch(details.match);
         setFreeContent(details.free_content || []);
         setPremiumContent(details.premium_content || []);
-        setAccess(!!accessResult.access);
+        setAccess(!!(accessResult.has_access ?? accessResult.access));
+        setIsSubscriptionAccess(!!accessResult.is_subscription);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load match data");
       } finally {
@@ -312,7 +339,7 @@ export default function MatchDetailsPage() {
               <div className="flex items-center justify-between mb-4 sm:mb-5">
                 <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">KAIRO Analysis &amp; KAIRO Teams</h2>
                 <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-gradient-primary text-white shadow-lg">
-                  {access ? "Unlocked ✅" : "PREMIUM"}
+                  {access ? (isSubscriptionAccess ? "Monthly ✅" : "Unlocked ✅") : "KAIRO"}
                 </span>
               </div>
 
@@ -350,12 +377,20 @@ export default function MatchDetailsPage() {
                       <p className="text-sm sm:text-base text-gray-600 mb-6">
                         Unlock captain picks, differential teams, and advanced analysis.
                       </p>
-                      <button
-                        onClick={handleUnlockPremium}
-                        className="w-full bg-gradient-primary text-white py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
-                      >
-                        Unlock for ₹299
-                      </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                          onClick={handleUnlockPremium}
+                          className="w-full bg-gradient-primary text-white py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
+                        >
+                          Unlock Match ₹99
+                        </button>
+                        <button
+                          onClick={handleUnlockSubscription}
+                          className="w-full bg-white text-gray-900 border border-gray-200 py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
+                        >
+                          Monthly ₹999
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

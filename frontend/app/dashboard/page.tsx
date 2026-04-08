@@ -490,7 +490,6 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<TabId>("featured");
 
   const handleMatchClick = (match: MatchItem) => {
-    console.log("clicked", match.id);
     router.push(`/matches/${match.id}`);
   };
 

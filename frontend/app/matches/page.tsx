@@ -252,9 +252,14 @@ export default function MatchesPage() {
                 <p className="text-sm sm:text-base text-gray-600 mb-6">
                   Unlock captain picks, differential teams, and KAIRO match analysis.
                 </p>
-                <button className="w-full bg-gradient-primary text-white py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5">
-                  Unlock for ₹299
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button className="w-full bg-gradient-primary text-white py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5">
+                    Match ₹99
+                  </button>
+                  <button className="w-full bg-white text-gray-900 border border-gray-200 py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5">
+                    Monthly ₹999
+                  </button>
+                </div>
               </div>
             </div>
           </div>

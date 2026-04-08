@@ -26,6 +26,15 @@ export type MatchDetailApiResponse = {
 
 export type MatchAccessApiResponse = {
   access: boolean;
+  has_access: boolean;
+  is_subscription: boolean;
+};
+
+export type PaymentPlanType = "match" | "subscription";
+
+export type CreateOrderPayload = {
+  type: PaymentPlanType;
+  match_id?: number;
 };
 
 export type CreateOrderResponse = {
@@ -33,17 +42,24 @@ export type CreateOrderResponse = {
   amount: number;
   currency: string;
   key: string;
+  type?: PaymentPlanType;
+  match_id?: number;
 };
 
 export type VerifyPaymentPayload = {
   razorpay_order_id: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
-  match_id: number;
+  type: PaymentPlanType;
+  match_id?: number;
 };
 
 export type VerifyPaymentResponse = {
   success: boolean;
+  type?: PaymentPlanType;
+  access?: boolean;
+  has_access?: boolean;
+  is_subscription?: boolean;
 };
 
 export type BackendAuthBridgePayload = {
@@ -130,10 +146,10 @@ export async function getMatchAccess(
 ): Promise<MatchAccessApiResponse> {
   const token = getStoredAuthToken();
   if (!token) {
-    return { access: false };
+    return { access: false, has_access: false, is_subscription: false };
   }
 
-  const response = await fetch(buildApiUrl(`match/${id}/access/`), {
+  let response = await fetch(buildApiUrl(`payment/check-access/?match_id=${id}`), {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -141,19 +157,35 @@ export async function getMatchAccess(
     },
   });
 
+  if (response.status === 404) {
+    response = await fetch(buildApiUrl(`match/${id}/access/`), {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  }
+
   if (response.status === 401 || response.status === 403) {
-    return { access: false };
+    return { access: false, has_access: false, is_subscription: false };
   }
 
   if (!response.ok) {
     throw new Error(`Failed to fetch match access (${response.status})`);
   }
 
-  return (await response.json()) as MatchAccessApiResponse;
+  const data = (await response.json()) as Partial<MatchAccessApiResponse>;
+  const hasAccess = Boolean(data.has_access ?? data.access);
+  return {
+    access: hasAccess,
+    has_access: hasAccess,
+    is_subscription: Boolean(data.is_subscription),
+  };
 }
 
 export async function createPaymentOrder(
-  matchId: number
+  payload: CreateOrderPayload | number
 ): Promise<CreateOrderResponse> {
   if (typeof window === "undefined") {
     throw new Error("Payment is only available in browser context");
@@ -164,13 +196,22 @@ export async function createPaymentOrder(
     throw new Error("AUTH_REQUIRED");
   }
 
+  const requestPayload: CreateOrderPayload =
+    typeof payload === "number"
+      ? { type: "match", match_id: payload }
+      : payload;
+
+  if (requestPayload.type === "match" && !requestPayload.match_id) {
+    throw new Error("match_id is required for match payment");
+  }
+
   const response = await fetch(buildApiUrl("payment/create-order/"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ match_id: matchId }),
+    body: JSON.stringify(requestPayload),
   });
 
   if (response.status === 401 || response.status === 403) {

@@ -3,7 +3,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from payments.models import MatchPurchase
+from payments.access import has_active_subscription, has_premium_access
 
 from .models import Match
 from .serializers import FreeContentSerializer, MatchSerializer, PremiumContentSerializer
@@ -46,11 +46,13 @@ class MatchAccessAPIView(APIView):
 
 	def get(self, request, match_id: int):
 		match = get_object_or_404(Match, pk=match_id)
+		is_subscription_active = has_active_subscription(request.user)
+		has_access = has_premium_access(request.user, match)
 
-		has_access = MatchPurchase.objects.filter(
-			user=request.user,
-			match=match,
-			status=MatchPurchase.PurchaseStatus.SUCCESS,
-		).exists()
-
-		return Response({"access": has_access})
+		return Response(
+			{
+				"access": has_access,
+				"has_access": has_access,
+				"is_subscription": is_subscription_active,
+			}
+		)
