@@ -10,6 +10,13 @@ class User(AbstractUser):
 		blank=True,
 		null=True,
 	)
+	is_premium = models.BooleanField("Is Premium", default=False)
+	premium_expiry = models.DateTimeField(
+		"Premium Expiry",
+		null=True,
+		blank=True,
+		db_index=True,
+	)
 
 	USERNAME_FIELD = "email"
 	REQUIRED_FIELDS = ["username"]

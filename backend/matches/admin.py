@@ -2,8 +2,13 @@ from botocore.exceptions import BotoCoreError, ClientError
 from django.contrib import admin, messages
 from django.db import transaction
 from django.http import HttpResponseRedirect
+from django.utils import timezone
+from zoneinfo import ZoneInfo
 
 from .models import FreeContent, Match, PremiumContent
+
+
+IST = ZoneInfo("Asia/Kolkata")
 
 
 def _format_storage_error(exc: Exception) -> str:
@@ -32,7 +37,7 @@ class PremiumContentInline(admin.TabularInline):
 
 @admin.register(Match)
 class MatchAdmin(admin.ModelAdmin):
-	list_display = ("match_name", "team_1", "team_2", "match_date", "created_at")
+	list_display = ("match_name", "team_1", "team_2", "match_date_ist", "created_at_ist")
 	list_filter = ("match_date",)
 	search_fields = ("match_name", "team_1", "team_2")
 	ordering = ("-match_date",)
@@ -52,6 +57,20 @@ class MatchAdmin(admin.ModelAdmin):
 			},
 		),
 	)
+
+	@staticmethod
+	def _format_ist(value):
+		if value is None:
+			return "-"
+		return timezone.localtime(value, IST).strftime("%d-%m-%Y %I:%M %p IST")
+
+	@admin.display(description="Match Date (IST)", ordering="match_date")
+	def match_date_ist(self, obj: Match):
+		return self._format_ist(obj.match_date)
+
+	@admin.display(description="Created At (IST)", ordering="created_at")
+	def created_at_ist(self, obj: Match):
+		return self._format_ist(obj.created_at)
 
 	def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
 		try:

@@ -1,9 +1,12 @@
 from rest_framework import serializers
+from django.utils import timezone
 
 from .models import FreeContent, Match, PremiumContent
 
 
 class MatchSerializer(serializers.ModelSerializer):
+    match_date = serializers.DateTimeField(default_timezone=timezone.get_current_timezone())
+
     class Meta:
         model = Match
         fields = ["id", "team_1", "team_2", "match_name", "match_date"]

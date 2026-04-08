@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 
 from matches.models import Match
 
-from .access import has_active_subscription, has_premium_access
+from .access import has_active_premium_access, has_active_subscription, has_premium_access
 from .models import MatchPurchase
 
 
@@ -194,7 +194,11 @@ class VerifyPaymentAPIView(APIView):
 					)
 
 		is_subscription_active = has_active_subscription(request.user)
-		has_access = has_premium_access(request.user, match) if match else is_subscription_active
+		has_access = (
+			has_premium_access(request.user, match)
+			if match
+			else has_active_premium_access(request.user)
+		)
 
 		return Response(
 			{

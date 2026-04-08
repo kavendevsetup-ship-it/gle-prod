@@ -5,6 +5,20 @@ from matches.models import Match
 from .models import MatchPurchase
 
 
+def has_admin_premium_override(user) -> bool:
+    if not user or not user.is_authenticated:
+        return False
+
+    if not getattr(user, "is_premium", False):
+        return False
+
+    premium_expiry = getattr(user, "premium_expiry", None)
+    if premium_expiry is None:
+        return False
+
+    return premium_expiry > timezone.now()
+
+
 def has_active_subscription(user) -> bool:
     if not user or not user.is_authenticated:
         return False
@@ -18,11 +32,15 @@ def has_active_subscription(user) -> bool:
     ).exists()
 
 
+def has_active_premium_access(user) -> bool:
+    return has_admin_premium_override(user) or has_active_subscription(user)
+
+
 def has_premium_access(user, match: Match) -> bool:
     if not user or not user.is_authenticated:
         return False
 
-    if has_active_subscription(user):
+    if has_active_premium_access(user):
         return True
 
     return MatchPurchase.objects.filter(
