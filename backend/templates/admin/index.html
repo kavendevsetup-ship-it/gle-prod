@@ -1,0 +1,61 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <style>
+    .analytics-banner {
+      margin-bottom: 16px;
+      padding: 14px 16px;
+      border: 1px solid #dbe3ed;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .analytics-banner h2 {
+      margin: 0;
+      font-size: 18px;
+      color: #0f172a;
+    }
+
+    .analytics-banner p {
+      margin: 4px 0 0;
+      color: #475569;
+      font-size: 13px;
+    }
+
+    .analytics-banner a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: #1f6feb;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 13px;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  {% if user.is_superuser %}
+    <div class="analytics-banner">
+      <div>
+        <h2>Internal Admin Analytics</h2>
+        <p>Track revenue, users, conversions, and top match performance in one place.</p>
+      </div>
+      <a href="{% url 'admin:analytics-dashboard' %}">Open Dashboard</a>
+    </div>
+  {% endif %}
+
+  {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+</div>
+{% endblock %}
