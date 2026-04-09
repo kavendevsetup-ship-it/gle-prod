@@ -28,6 +28,12 @@ type RazorpayHandlerResponse = {
   razorpay_signature: string;
 };
 
+type PremiumBlock =
+  | { type: "heading"; text: string; highlight: boolean }
+  | { type: "keyValue"; key: string; value: string; highlight: boolean }
+  | { type: "list"; items: string[]; highlight: boolean }
+  | { type: "paragraph"; text: string; highlight: boolean };
+
 let razorpayScriptPromise: Promise<boolean> | null = null;
 
 function loadRazorpayScript(): Promise<boolean> {
@@ -64,6 +70,94 @@ function getFileNameFromUrl(fileUrl: string) {
     const fileName = fileUrl.split("/").pop() || "file";
     return decodeURIComponent(fileName);
   }
+}
+
+function isImportantPremiumLine(line: string): boolean {
+  return /(captain|vice\s*captain|gl\s*team|strategy)/i.test(line);
+}
+
+function formatPremiumContent(description: string): PremiumBlock[] {
+  const normalized = (description || "").replace(/\r\n/g, "\n").trim();
+  if (!normalized) return [];
+
+  const lines = normalized
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const blocks: PremiumBlock[] = [];
+  let bulletBuffer: string[] = [];
+  let bulletHighlight = false;
+
+  const flushBullets = () => {
+    if (bulletBuffer.length === 0) return;
+
+    blocks.push({
+      type: "list",
+      items: [...bulletBuffer],
+      highlight: bulletHighlight,
+    });
+
+    bulletBuffer = [];
+    bulletHighlight = false;
+  };
+
+  const bulletRegex = /^([\-*•]|\d+[.)])\s+/;
+
+  for (const line of lines) {
+    const isBullet = bulletRegex.test(line);
+
+    if (isBullet) {
+      const itemText = line.replace(bulletRegex, "").trim();
+      if (itemText) {
+        bulletBuffer.push(itemText);
+        bulletHighlight = bulletHighlight || isImportantPremiumLine(itemText);
+      }
+      continue;
+    }
+
+    flushBullets();
+
+    const isHeading = /:$/.test(line);
+    if (isHeading) {
+      const headingText = line.slice(0, -1).trim();
+      if (headingText) {
+        blocks.push({
+          type: "heading",
+          text: headingText,
+          highlight: isImportantPremiumLine(headingText),
+        });
+      }
+      continue;
+    }
+
+    const colonIndex = line.indexOf(":");
+    const looksLikeKeyValue =
+      colonIndex > 0 &&
+      colonIndex < line.length - 1 &&
+      line.slice(0, colonIndex).trim().length <= 32;
+
+    if (looksLikeKeyValue) {
+      const key = line.slice(0, colonIndex).trim();
+      const value = line.slice(colonIndex + 1).trim();
+      blocks.push({
+        type: "keyValue",
+        key,
+        value,
+        highlight: isImportantPremiumLine(key) || isImportantPremiumLine(value),
+      });
+      continue;
+    }
+
+    blocks.push({
+      type: "paragraph",
+      text: line,
+      highlight: isImportantPremiumLine(line),
+    });
+  }
+
+  flushBullets();
+  return blocks;
 }
 
 function FreeContentItem({ item }: { item: FreeContentApiItem }) {
@@ -141,9 +235,17 @@ function FreeContentItem({ item }: { item: FreeContentApiItem }) {
 }
 
 function PremiumContentItem({ item }: { item: PremiumContentApiItem }) {
+  const blocks = formatPremiumContent(item.description);
+
+  const baseBlockClass =
+    "rounded-xl border px-4 py-3 sm:px-5 sm:py-4 break-words max-w-full";
+  const plainBlockClass = `${baseBlockClass} border-gray-100/80 bg-white/75`;
+  const highlightBlockClass =
+    `${baseBlockClass} border-amber-200/80 bg-gradient-to-r from-amber-50 to-orange-50`;
+
   return (
-    <div className="bg-gradient-card rounded-2xl border border-gray-200/50 p-6 hover:shadow-craft-lg transition-all duration-300">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-gradient-card/95 backdrop-blur-sm rounded-2xl border border-gray-200/70 p-5 sm:p-6 shadow-lg hover:shadow-craft-lg transition-all duration-300">
+      <div className="flex items-center justify-between mb-4 sm:mb-5">
         <div className="flex items-center space-x-2">
           <span className="px-3 py-1 rounded-full text-xs font-medium border bg-yellow-100 text-yellow-800 border-yellow-200">
             KAIRO
@@ -151,9 +253,63 @@ function PremiumContentItem({ item }: { item: PremiumContentApiItem }) {
         </div>
       </div>
 
-      <div className="space-y-3">
-        <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-snug">{item.title}</h3>
-        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{item.description}</p>
+      <div className="space-y-4 sm:space-y-5">
+        <h3 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight tracking-tight">
+          {item.title}
+        </h3>
+
+        <div className="space-y-3 text-sm sm:text-base text-gray-800 leading-relaxed">
+          {blocks.length > 0 ? (
+            blocks.map((block, index) => {
+              const wrapperClass = block.highlight ? highlightBlockClass : plainBlockClass;
+
+              if (block.type === "heading") {
+                return (
+                  <div key={`${item.id}-heading-${index}`} className={wrapperClass}>
+                    <h4 className="text-sm sm:text-base font-semibold text-gray-900">{block.text}</h4>
+                  </div>
+                );
+              }
+
+              if (block.type === "keyValue") {
+                return (
+                  <div key={`${item.id}-kv-${index}`} className={wrapperClass}>
+                    <p className="text-sm sm:text-base leading-relaxed text-gray-800">
+                      <span className="font-semibold text-gray-900">{block.key}: </span>
+                      <span>{block.value}</span>
+                    </p>
+                  </div>
+                );
+              }
+
+              if (block.type === "list") {
+                return (
+                  <div key={`${item.id}-list-${index}`} className={wrapperClass}>
+                    <ul className="space-y-2 pl-5 list-disc marker:text-amber-600 text-sm sm:text-base leading-relaxed">
+                      {block.items.map((listItem, itemIndex) => (
+                        <li key={`${item.id}-list-item-${index}-${itemIndex}`} className="text-gray-800">
+                          {listItem}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={`${item.id}-paragraph-${index}`} className={wrapperClass}>
+                  <p className="text-sm sm:text-base leading-relaxed text-gray-800">{block.text}</p>
+                </div>
+              );
+            })
+          ) : (
+            <div className={plainBlockClass}>
+              <p className="text-sm sm:text-base text-gray-800 leading-relaxed">
+                {item.description}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100 px-4 py-3">
