@@ -49,6 +49,12 @@ class PremiumContent(models.Model):
 	)
 	title = models.CharField("Title", max_length=255)
 	description = models.TextField("Expert Analysis")
+	image = models.ImageField(
+		"Image",
+		upload_to="premium_content/",
+		null=True,
+		blank=True,
+	)
 	created_at = models.DateTimeField("Created At", auto_now_add=True)
 
 	class Meta:

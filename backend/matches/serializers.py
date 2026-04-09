@@ -29,6 +29,16 @@ class FreeContentSerializer(serializers.ModelSerializer):
 
 
 class PremiumContentSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = PremiumContent
-        fields = ["id", "title", "description"]
+        fields = ["id", "title", "description", "image"]
+
+    def get_image(self, obj: PremiumContent) -> str | None:
+        request = self.context.get("request")
+        if not obj.image:
+            return None
+        if request is None:
+            return obj.image.url
+        return request.build_absolute_uri(obj.image.url)

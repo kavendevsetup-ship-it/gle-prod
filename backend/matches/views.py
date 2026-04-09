@@ -29,7 +29,7 @@ class MatchDetailAPIView(APIView):
 			match.free_contents.all(), many=True, context={"request": request}
 		).data
 		premium_content_data = PremiumContentSerializer(
-			match.premium_contents.all(), many=True
+			match.premium_contents.all(), many=True, context={"request": request}
 		).data
 
 		return Response(

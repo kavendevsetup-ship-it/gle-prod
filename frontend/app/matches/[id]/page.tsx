@@ -34,6 +34,12 @@ type PremiumBlock =
   | { type: "list"; items: string[]; highlight: boolean }
   | { type: "paragraph"; text: string; highlight: boolean };
 
+type GalleryImageItem = {
+  id: number;
+  file: string;
+  label: string;
+};
+
 let razorpayScriptPromise: Promise<boolean> | null = null;
 
 function loadRazorpayScript(): Promise<boolean> {
@@ -157,72 +163,249 @@ function formatPremiumContent(description: string): PremiumBlock[] {
 }
 
 function FreeContentItem({ item }: { item: FreeContentApiItem }) {
-  const isPdf = item.type === "pdf";
-
   return (
     <div className="bg-gradient-card rounded-2xl border border-gray-200/50 p-6 hover:shadow-craft-lg transition-all duration-300">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
-          <span
-            className={`px-3 py-1 rounded-full text-xs font-medium border ${
-              isPdf
-                ? "bg-blue-100 text-blue-800 border-blue-200"
-                : "bg-green-100 text-green-800 border-green-200"
-            }`}
-          >
-            {item.type.toUpperCase()}
+          <span className="px-3 py-1 rounded-full text-xs font-medium border bg-blue-100 text-blue-800 border-blue-200">
+            PDF
           </span>
         </div>
       </div>
 
       <div className="mb-4 space-y-2">
-        <p className="text-sm sm:text-base font-semibold text-gray-900">{isPdf ? "Match Report" : "Match Preview"}</p>
-        <p className="text-xs sm:text-sm text-gray-600">{isPdf ? "Analysis PDF for this match" : "Visual preview for this match"}</p>
+        <p className="text-sm sm:text-base font-semibold text-gray-900">Match Report</p>
+        <p className="text-xs sm:text-sm text-gray-600">Analysis PDF for this match</p>
       </div>
 
-      {isPdf ? (
-        <div className="space-y-3">
-          <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
-            <p className="text-xs sm:text-sm text-blue-800 font-medium">PDF ready to view or download</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-            <a
-              href={item.file}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-gradient-primary text-white py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
-            >
-              Open PDF
-            </a>
-            <a
-              href={item.file}
-              download
-              className="bg-white text-gray-900 border border-gray-200 py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
-            >
-              Download
-            </a>
-          </div>
+      <div className="space-y-3">
+        <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+          <p className="text-xs sm:text-sm text-blue-800 font-medium">PDF ready to view or download</p>
         </div>
-      ) : (
-        <div className="space-y-3">
-          <div className="rounded-xl overflow-hidden shadow-md bg-white border border-gray-100">
-            <img
-              src={item.file}
-              alt="Match preview"
-              className="w-full h-auto object-contain max-h-56 sm:max-h-64"
-              loading="lazy"
-            />
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
           <a
             href={item.file}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full inline-block bg-gradient-primary text-white py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
+            className="bg-gradient-primary text-white py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
           >
-            View Image
+            Open PDF
+          </a>
+          <a
+            href={item.file}
+            download
+            className="bg-white text-gray-900 border border-gray-200 py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
+          >
+            Download
           </a>
         </div>
-      )}
+      </div>
+    </div>
+  );
+}
+
+function GLAnalysisCard({ imageCount, onOpen }: { imageCount: number; onOpen: () => void }) {
+  return (
+    <div className="bg-gradient-card rounded-2xl border border-gray-200/50 p-6 hover:shadow-craft-lg transition-all duration-300">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <span className="px-3 py-1 rounded-full text-xs font-medium border bg-green-100 text-green-800 border-green-200">
+            IMAGE
+          </span>
+        </div>
+      </div>
+
+      <div className="mb-4 space-y-2">
+        <p className="text-sm sm:text-base font-semibold text-gray-900">GL Analysis</p>
+        <p className="text-xs sm:text-sm text-gray-600">
+          {imageCount > 1 ? `${imageCount} analysis images available` : "1 analysis image available"}
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <div className="rounded-xl border border-green-100 bg-green-50/60 p-3">
+          <p className="text-xs sm:text-sm text-green-800 font-medium">Swipe or use arrows to browse all analysis images</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onOpen}
+          className="w-full inline-block bg-gradient-primary text-white py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
+        >
+          View GL Analysis
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ImageViewerModal({
+  isOpen,
+  images,
+  activeIndex,
+  title,
+  onClose,
+  onPrev,
+  onNext,
+  onSetIndex,
+}: {
+  isOpen: boolean;
+  images: GalleryImageItem[];
+  activeIndex: number;
+  title: string;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onSetIndex: (index: number) => void;
+}) {
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+      if (event.key === "ArrowLeft") {
+        onPrev();
+      }
+      if (event.key === "ArrowRight") {
+        onNext();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose, onNext, onPrev]);
+
+  if (!isOpen || images.length === 0) return null;
+
+  const activeImage = images[activeIndex];
+
+  return (
+    <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
+      <div className="relative w-full max-w-5xl rounded-2xl border border-white/20 bg-black/40 shadow-2xl overflow-hidden">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 rounded-full bg-white/90 text-gray-900 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white transition-colors"
+          aria-label="Close gallery"
+        >
+          ✕
+        </button>
+
+        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 px-3 py-1.5 rounded-full bg-black/55 text-white text-xs sm:text-sm font-medium">
+          {title} • {activeIndex + 1} / {images.length}
+        </div>
+
+        <div
+          className="relative flex items-center justify-center min-h-[58vh] sm:min-h-[66vh] px-2 sm:px-12 py-12 sm:py-14"
+          onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
+          onTouchEnd={(event) => {
+            if (touchStartX === null) return;
+            const endX = event.changedTouches[0]?.clientX ?? touchStartX;
+            const delta = endX - touchStartX;
+            if (delta > 40) onPrev();
+            if (delta < -40) onNext();
+            setTouchStartX(null);
+          }}
+        >
+          <button
+            type="button"
+            onClick={onPrev}
+            className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/85 text-gray-900 items-center justify-center hover:bg-white transition-colors"
+            aria-label="Previous image"
+          >
+            ‹
+          </button>
+
+          <img
+            key={activeImage.id}
+            src={activeImage.file}
+            alt={`${activeImage.label} ${activeIndex + 1}`}
+            className="w-full h-full max-h-[60vh] sm:max-h-[70vh] object-contain rounded-xl transition-opacity duration-300"
+            loading="eager"
+          />
+
+          <button
+            type="button"
+            onClick={onNext}
+            className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/85 text-gray-900 items-center justify-center hover:bg-white transition-colors"
+            aria-label="Next image"
+          >
+            ›
+          </button>
+        </div>
+
+        <div className="sm:hidden grid grid-cols-2 gap-2 px-3 pb-3">
+          <button
+            type="button"
+            onClick={onPrev}
+            className="bg-white/90 text-gray-900 py-2 rounded-lg text-sm font-medium"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={onNext}
+            className="bg-white/90 text-gray-900 py-2 rounded-lg text-sm font-medium"
+          >
+            Next
+          </button>
+        </div>
+
+        {images.length > 1 ? (
+          <div className="px-4 pb-4 sm:px-6 sm:pb-5 flex justify-center gap-1.5 sm:gap-2">
+            {images.map((image, index) => (
+              <button
+                key={image.id}
+                type="button"
+                onClick={() => onSetIndex(index)}
+                className={`h-1.5 rounded-full transition-all duration-200 ${
+                  index === activeIndex ? "w-6 bg-white" : "w-2 bg-white/45"
+                }`}
+                aria-label={`Go to image ${index + 1}`}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function KairoVisualAnalysisCard({ imageCount, onOpen }: { imageCount: number; onOpen: () => void }) {
+  return (
+    <div className="bg-gradient-card rounded-2xl border border-gray-200/50 p-6 hover:shadow-craft-lg transition-all duration-300">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <span className="px-3 py-1 rounded-full text-xs font-medium border bg-yellow-100 text-yellow-800 border-yellow-200">
+            KAIRO IMAGE
+          </span>
+        </div>
+      </div>
+
+      <div className="mb-4 space-y-2">
+        <p className="text-sm sm:text-base font-semibold text-gray-900">KAIRO Visual Analysis</p>
+        <p className="text-xs sm:text-sm text-gray-600">
+          {imageCount > 1 ? `${imageCount} premium analysis images available` : "1 premium analysis image available"}
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
+          <p className="text-xs sm:text-sm text-amber-800 font-medium">Swipe or use arrows to browse premium analysis images</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onOpen}
+          className="w-full inline-block bg-gradient-primary text-white py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
+        >
+          View Analysis
+        </button>
+      </div>
     </div>
   );
 }
@@ -336,8 +519,77 @@ export default function MatchDetailsPage() {
   const [premiumContent, setPremiumContent] = useState<PremiumContentApiItem[]>([]);
   const [access, setAccess] = useState(false);
   const [isSubscriptionAccess, setIsSubscriptionAccess] = useState(false);
+  const [isFreeImageViewerOpen, setIsFreeImageViewerOpen] = useState(false);
+  const [activeFreeImageIndex, setActiveFreeImageIndex] = useState(0);
+  const [isPremiumImageViewerOpen, setIsPremiumImageViewerOpen] = useState(false);
+  const [activePremiumImageIndex, setActivePremiumImageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const freePdfContent = freeContent.filter((item) => item.type === "pdf");
+  const freeImageContent = freeContent.filter((item) => item.type === "image");
+  const freeImageGallery: GalleryImageItem[] = freeImageContent.map((item) => ({
+    id: item.id,
+    file: item.file,
+    label: "GL Analysis",
+  }));
+
+  const premiumTextContent = premiumContent.filter((item) => !item.image);
+  const premiumImageGallery: GalleryImageItem[] = premiumContent
+    .filter((item) => Boolean(item.image))
+    .map((item) => ({
+      id: item.id,
+      file: item.image as string,
+      label: "KAIRO Visual Analysis",
+    }));
+
+  const openFreeImageViewer = () => {
+    if (freeImageGallery.length === 0) return;
+    setActiveFreeImageIndex(0);
+    setIsFreeImageViewerOpen(true);
+  };
+
+  const closeFreeImageViewer = () => {
+    setIsFreeImageViewerOpen(false);
+  };
+
+  const showPreviousFreeImage = () => {
+    setActiveFreeImageIndex((prev) => {
+      if (freeImageGallery.length === 0) return 0;
+      return prev === 0 ? freeImageGallery.length - 1 : prev - 1;
+    });
+  };
+
+  const showNextFreeImage = () => {
+    setActiveFreeImageIndex((prev) => {
+      if (freeImageGallery.length === 0) return 0;
+      return prev === freeImageGallery.length - 1 ? 0 : prev + 1;
+    });
+  };
+
+  const openPremiumImageViewer = () => {
+    if (premiumImageGallery.length === 0) return;
+    setActivePremiumImageIndex(0);
+    setIsPremiumImageViewerOpen(true);
+  };
+
+  const closePremiumImageViewer = () => {
+    setIsPremiumImageViewerOpen(false);
+  };
+
+  const showPreviousPremiumImage = () => {
+    setActivePremiumImageIndex((prev) => {
+      if (premiumImageGallery.length === 0) return 0;
+      return prev === 0 ? premiumImageGallery.length - 1 : prev - 1;
+    });
+  };
+
+  const showNextPremiumImage = () => {
+    setActivePremiumImageIndex((prev) => {
+      if (premiumImageGallery.length === 0) return 0;
+      return prev === premiumImageGallery.length - 1 ? 0 : prev + 1;
+    });
+  };
 
   const refreshAccess = async (targetMatchId: number | string) => {
     const accessResult = await getMatchAccess(targetMatchId);
@@ -507,14 +759,25 @@ export default function MatchDetailsPage() {
               </div>
 
               {access ? (
-                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
-                  {premiumContent.length > 0 ? (
-                    premiumContent.map((item) => <PremiumContentItem key={item.id} item={item} />)
-                  ) : (
+                <div className="mt-2 space-y-4 sm:space-y-6">
+                  {premiumTextContent.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
+                      {premiumTextContent.map((item) => <PremiumContentItem key={item.id} item={item} />)}
+                    </div>
+                  ) : null}
+
+                  {premiumImageGallery.length > 0 ? (
+                    <KairoVisualAnalysisCard
+                      imageCount={premiumImageGallery.length}
+                      onOpen={openPremiumImageViewer}
+                    />
+                  ) : null}
+
+                  {premiumTextContent.length === 0 && premiumImageGallery.length === 0 ? (
                     <div className="bg-gradient-card rounded-2xl border border-gray-200/50 p-6 text-gray-600">
                       No premium content available.
                     </div>
-                  )}
+                  ) : null}
                 </div>
               ) : (
                 <div className="mt-2 space-y-4 sm:space-y-5">
@@ -575,17 +838,45 @@ export default function MatchDetailsPage() {
               </div>
 
               <div className="flex flex-col gap-4 sm:gap-6">
-                {freeContent.length > 0 ? (
-                  freeContent.map((item) => <FreeContentItem key={item.id} item={item} />)
-                ) : (
+                {freePdfContent.map((item) => (
+                  <FreeContentItem key={item.id} item={item} />
+                ))}
+
+                {freeImageContent.length > 0 ? (
+                    <GLAnalysisCard imageCount={freeImageContent.length} onOpen={openFreeImageViewer} />
+                ) : null}
+
+                {freePdfContent.length === 0 && freeImageContent.length === 0 ? (
                   <div className="bg-gradient-card rounded-2xl border border-gray-200/50 p-6 text-gray-600">
                     No free content available.
                   </div>
-                )}
+                ) : null}
               </div>
             </section>
           </>
         )}
+
+          <ImageViewerModal
+            isOpen={isFreeImageViewerOpen}
+            images={freeImageGallery}
+            activeIndex={activeFreeImageIndex}
+            title="GL Analysis"
+            onClose={closeFreeImageViewer}
+            onPrev={showPreviousFreeImage}
+            onNext={showNextFreeImage}
+            onSetIndex={setActiveFreeImageIndex}
+          />
+
+          <ImageViewerModal
+            isOpen={isPremiumImageViewerOpen}
+            images={premiumImageGallery}
+            activeIndex={activePremiumImageIndex}
+            title="KAIRO Visual Analysis"
+            onClose={closePremiumImageViewer}
+            onPrev={showPreviousPremiumImage}
+            onNext={showNextPremiumImage}
+            onSetIndex={setActivePremiumImageIndex}
+        />
       </div>
     </div>
   );

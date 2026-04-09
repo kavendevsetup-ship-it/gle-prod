@@ -2,6 +2,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from django.contrib import admin, messages
 from django.db import transaction
 from django.http import HttpResponseRedirect
+from django.utils.html import format_html
 from django.utils import timezone
 from zoneinfo import ZoneInfo
 
@@ -31,8 +32,17 @@ class FreeContentInline(admin.TabularInline):
 class PremiumContentInline(admin.TabularInline):
 	model = PremiumContent
 	extra = 1
-	fields = ("title", "description", "created_at")
-	readonly_fields = ("created_at",)
+	fields = ("title", "description", "image", "image_preview", "created_at")
+	readonly_fields = ("image_preview", "created_at")
+
+	@admin.display(description="Preview")
+	def image_preview(self, obj: PremiumContent):
+		if not obj or not obj.image:
+			return "-"
+		return format_html(
+			'<img src="{}" alt="Premium preview" style="max-height:64px; border-radius:8px;" />',
+			obj.image.url,
+		)
 
 
 @admin.register(Match)
@@ -94,6 +104,21 @@ class FreeContentAdmin(admin.ModelAdmin):
 
 @admin.register(PremiumContent)
 class PremiumContentAdmin(admin.ModelAdmin):
-	list_display = ("match", "title", "created_at")
+	list_display = ("match", "title", "has_image", "created_at")
 	list_filter = ("created_at",)
 	search_fields = ("match__match_name", "title")
+	fields = ("match", "title", "description", "image", "image_preview", "created_at")
+	readonly_fields = ("image_preview", "created_at")
+
+	@admin.display(boolean=True, description="Has Image")
+	def has_image(self, obj: PremiumContent):
+		return bool(obj.image)
+
+	@admin.display(description="Image Preview")
+	def image_preview(self, obj: PremiumContent):
+		if not obj or not obj.image:
+			return "-"
+		return format_html(
+			'<img src="{}" alt="Premium preview" style="max-height:120px; border-radius:10px;" />',
+			obj.image.url,
+		)

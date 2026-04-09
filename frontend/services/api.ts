@@ -16,6 +16,7 @@ export type PremiumContentApiItem = {
   id: number;
   title: string;
   description: string;
+  image?: string | null;
 };
 
 export type MatchDetailApiResponse = {
