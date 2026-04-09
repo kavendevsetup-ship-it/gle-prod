@@ -1,0 +1,239 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'matches/css/admin_dashboard.css' %}" />
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a>
+  &rsaquo; Admin Analytics Dashboard
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-shell">
+  <div class="dashboard-header">
+    <div>
+      <h1>Admin Analytics Dashboard</h1>
+      <p>{{ dashboard_subtitle }}</p>
+    </div>
+    <a href="{% url 'admin:index' %}" class="btn-secondary">Back to Admin Home</a>
+  </div>
+
+  <form method="get" class="filter-bar">
+    <div class="preset-group">
+      <a href="?range=7" class="chip{% if range_key == '7' %} chip-active{% endif %}">Last 7 Days</a>
+      <a href="?range=30" class="chip{% if range_key == '30' %} chip-active{% endif %}">Last 30 Days</a>
+    </div>
+    <div class="custom-range">
+      <label>
+        Start
+        <input type="date" name="start" value="{{ start_date|date:'Y-m-d' }}" />
+      </label>
+      <label>
+        End
+        <input type="date" name="end" value="{{ end_date|date:'Y-m-d' }}" />
+      </label>
+      <button type="submit" class="btn-primary">Apply</button>
+    </div>
+  </form>
+
+  <section class="metric-grid">
+    <article class="metric-card">
+      <h3>Total Revenue</h3>
+      <p class="metric-value">Rs {{ total_revenue|floatformat:2 }}</p>
+      <span>Successful purchases only</span>
+    </article>
+    <article class="metric-card">
+      <h3>Total Users</h3>
+      <p class="metric-value">{{ total_users }}</p>
+      <span>Registered accounts</span>
+    </article>
+    <article class="metric-card">
+      <h3>Active Subscriptions</h3>
+      <p class="metric-value">{{ active_subscriptions }}</p>
+      <span>Subscription end date in future</span>
+    </article>
+    <article class="metric-card">
+      <h3>Total Match Purchases</h3>
+      <p class="metric-value">{{ total_match_purchases }}</p>
+      <span>Non-subscription successful purchases</span>
+    </article>
+  </section>
+
+  <section class="split-grid">
+    <article class="panel">
+      <div class="panel-head">
+        <h2>Revenue Breakdown</h2>
+      </div>
+      <div class="two-col-stats">
+        <div>
+          <span class="stat-label">Match Purchases Revenue</span>
+          <p class="stat-value">Rs {{ revenue_match|floatformat:2 }}</p>
+        </div>
+        <div>
+          <span class="stat-label">Subscriptions Revenue</span>
+          <p class="stat-value">Rs {{ revenue_subscription|floatformat:2 }}</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <h2>User Insights</h2>
+      </div>
+      <div class="two-col-stats">
+        <div>
+          <span class="stat-label">Premium Users</span>
+          <p class="stat-value">{{ premium_users }}</p>
+        </div>
+        <div>
+          <span class="stat-label">Non-Premium Users</span>
+          <p class="stat-value">{{ non_premium_users }}</p>
+        </div>
+      </div>
+      <p class="conversion-line">Conversion Rate: <strong>{{ conversion_rate|floatformat:2 }}%</strong></p>
+    </article>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Daily Analytics ({{ start_date }} to {{ end_date }})</h2>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Daily Revenue</h3>
+        <div class="mini-chart">
+          {% for point in daily_revenue_chart %}
+            <div class="bar-col" title="{{ point.label }}: Rs {{ point.value|floatformat:2 }}">
+              <span class="bar" style="height: {{ point.height|floatformat:2 }}%;"></span>
+              <small>{{ point.label }}</small>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>New Users Per Day</h3>
+        <div class="mini-chart">
+          {% for point in daily_user_chart %}
+            <div class="bar-col" title="{{ point.label }}: {{ point.value|floatformat:0 }} users">
+              <span class="bar bar-users" style="height: {{ point.height|floatformat:2 }}%;"></span>
+              <small>{{ point.label }}</small>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>Purchases Per Day</h3>
+        <div class="mini-chart">
+          {% for point in daily_purchase_chart %}
+            <div class="bar-col" title="{{ point.label }}: {{ point.value|floatformat:0 }} purchases">
+              <span class="bar bar-purchases" style="height: {{ point.height|floatformat:2 }}%;"></span>
+              <small>{{ point.label }}</small>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="split-grid">
+    <article class="panel">
+      <div class="panel-head">
+        <h2>Top 5 Matches by Revenue</h2>
+      </div>
+      <table class="table-clean">
+        <thead>
+          <tr>
+            <th>Match</th>
+            <th>Revenue</th>
+            <th>Purchases</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in top_matches_by_revenue %}
+            <tr>
+              <td>{{ row.match__match_name }}</td>
+              <td>Rs {{ row.total_revenue|floatformat:2 }}</td>
+              <td>{{ row.purchase_count }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3">No match revenue data available.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <h2>Top 5 Matches by Purchases</h2>
+      </div>
+      <table class="table-clean">
+        <thead>
+          <tr>
+            <th>Match</th>
+            <th>Purchases</th>
+            <th>Revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in top_matches_by_purchases %}
+            <tr>
+              <td>{{ row.match__match_name }}</td>
+              <td>{{ row.purchase_count }}</td>
+              <td>Rs {{ row.total_revenue|floatformat:2 }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3">No purchase volume data available.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </article>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Recent Activity</h2>
+    </div>
+    <table class="table-clean">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Type</th>
+          <th>Match</th>
+          <th>Amount</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for purchase in recent_purchases %}
+          <tr>
+            <td>{{ purchase.user.email }}</td>
+            <td>{% if purchase.is_subscription %}Subscription{% else %}Match{% endif %}</td>
+            <td>{% if purchase.match %}{{ purchase.match.match_name }}{% else %}-{% endif %}</td>
+            <td>Rs {{ purchase.amount|floatformat:2 }}</td>
+            <td>{{ purchase.created_at|date:"d M Y, h:i A" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5">No recent successful purchases found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Quick Actions</h2>
+    </div>
+    <div class="action-row">
+      <a class="btn-primary" href="{{ quick_action_urls.add_match }}">Add New Match</a>
+      <a class="btn-primary" href="{{ quick_action_urls.add_premium_content }}">Add Premium Content</a>
+      <a class="btn-secondary" href="{{ quick_action_urls.view_users }}">View Users</a>
+      <a class="btn-secondary" href="{{ quick_action_urls.view_purchases }}">View Purchases</a>
+    </div>
+  </section>
+</div>
+{% endblock %}

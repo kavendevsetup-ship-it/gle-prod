@@ -1,0 +1,50 @@
+.content-preview-empty {
+  color: #6b7280;
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.content-preview-text {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 10px 12px;
+}
+
+.content-preview-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.content-preview-body {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.content-preview-file {
+  font-size: 13px;
+  color: #1f2937;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  margin-bottom: 8px;
+}
+
+.inline-group .tabular .field-live_preview,
+.inline-group .stacked .field-live_preview {
+  min-width: 280px;
+}
+
+.inline-group .inline-related fieldset h2 {
+  font-size: 13px;
+  letter-spacing: 0.2px;
+}
