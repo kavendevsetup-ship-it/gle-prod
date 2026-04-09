@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -57,6 +58,35 @@ class FreeContent(models.Model):
 			label = self.get_content_type_display()
 		return f"{self.match.match_name} - {label}"
 
+	def _resolved_content_type(self) -> str:
+		content_type = (self.content_type or self.type or self.ContentType.PDF).lower()
+		if content_type in {self.ContentType.PDF, self.ContentType.IMAGE, self.ContentType.TEXT}:
+			return content_type
+		return self.ContentType.PDF
+
+	def clean(self):
+		content_type = self._resolved_content_type()
+
+		if content_type == self.ContentType.TEXT:
+			if not (self.text_body or "").strip():
+				raise ValidationError({"text_body": "Text content required."})
+		elif content_type == self.ContentType.IMAGE:
+			if not self.file:
+				raise ValidationError({"file": "Image required."})
+		elif content_type == self.ContentType.PDF:
+			if not self.file:
+				raise ValidationError({"file": "PDF required."})
+
+	def save(self, *args, **kwargs):
+		content_type = self._resolved_content_type()
+		self.content_type = content_type
+		self.type = content_type
+
+		if content_type == self.ContentType.TEXT:
+			self.file = None
+
+		super().save(*args, **kwargs)
+
 
 class PremiumContent(models.Model):
 	class ContentType(models.TextChoices):
@@ -99,3 +129,18 @@ class PremiumContent(models.Model):
 	def __str__(self) -> str:
 		label = self.title or self.get_content_type_display()
 		return f"{self.match.match_name} - {label}"
+
+	def clean(self):
+		content_type = (self.content_type or self.ContentType.TEXT).lower()
+
+		if content_type == self.ContentType.TEXT:
+			if not (self.title or "").strip():
+				raise ValidationError({"title": "Text content title required."})
+			if not (self.description or "").strip():
+				raise ValidationError({"description": "Text content required."})
+		elif content_type == self.ContentType.IMAGE:
+			if not self.image:
+				raise ValidationError({"image": "Image required."})
+		elif content_type == self.ContentType.VIDEO:
+			if not self.video:
+				raise ValidationError({"video": "Video required."})

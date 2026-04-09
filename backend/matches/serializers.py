@@ -46,9 +46,7 @@ class FreeContentSerializer(serializers.ModelSerializer):
 
         if resolved_type == FreeContent.ContentType.PDF:
             path = reverse("free-content-pdf-proxy", args=[obj.id])
-            if request is None:
-                return path
-            return request.build_absolute_uri(path)
+            return path
 
         if request is None:
             return obj.file.url

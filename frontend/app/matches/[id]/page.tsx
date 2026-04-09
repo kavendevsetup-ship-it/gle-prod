@@ -1049,7 +1049,7 @@ export default function MatchDetailsPage() {
 
   const freePdfDocuments: PdfDocumentItem[] = freePdfContent.map((item, index) => ({
     id: item.id,
-    url: item.file as string,
+    url: `/api/free-content/pdf/${item.id}/`,
     label: item.text_title || `Match Report ${index + 1}`,
   }));
 

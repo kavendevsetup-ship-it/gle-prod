@@ -97,6 +97,8 @@ class FreeContentPdfProxyAPIView(APIView):
 		filename = os.path.basename(content.file.name) or "analysis.pdf"
 		response = FileResponse(content.file, content_type="application/pdf")
 		response["Content-Disposition"] = f'inline; filename="{filename}"'
+		response["X-Frame-Options"] = "SAMEORIGIN"
+		response["Content-Security-Policy"] = "frame-ancestors 'self'"
 		response["X-Content-Type-Options"] = "nosniff"
 		response["Cache-Control"] = "private, no-store"
 		return response
