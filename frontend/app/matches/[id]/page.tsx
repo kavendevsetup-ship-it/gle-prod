@@ -61,19 +61,15 @@ function formatDateTime(dateStr: string) {
   };
 }
 
-function getFileNameFromUrl(fileUrl: string) {
-  try {
-    const parsed = new URL(fileUrl);
-    const fileName = parsed.pathname.split("/").pop() || "file";
-    return decodeURIComponent(fileName);
-  } catch {
-    const fileName = fileUrl.split("/").pop() || "file";
-    return decodeURIComponent(fileName);
-  }
-}
-
 function isImportantPremiumLine(line: string): boolean {
   return /(captain|vice\s*captain|gl\s*team|strategy)/i.test(line);
+}
+
+function getPremiumPreviewSnippet(description: string, maxLength = 180): string {
+  const cleaned = (description || "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return "Expert match insights available after unlocking.";
+  if (cleaned.length <= maxLength) return cleaned;
+  return `${cleaned.slice(0, maxLength).trimEnd()}...`;
 }
 
 function formatPremiumContent(description: string): PremiumBlock[] {
@@ -162,7 +158,6 @@ function formatPremiumContent(description: string): PremiumBlock[] {
 
 function FreeContentItem({ item }: { item: FreeContentApiItem }) {
   const isPdf = item.type === "pdf";
-  const fileName = getFileNameFromUrl(item.file);
 
   return (
     <div className="bg-gradient-card rounded-2xl border border-gray-200/50 p-6 hover:shadow-craft-lg transition-all duration-300">
@@ -181,10 +176,8 @@ function FreeContentItem({ item }: { item: FreeContentApiItem }) {
       </div>
 
       <div className="mb-4 space-y-2">
-        <p className="text-sm sm:text-base font-semibold text-gray-900">
-          {isPdf ? "Free PDF Analysis" : "Free Match Image"}
-        </p>
-        <p className="text-xs sm:text-sm text-gray-600 break-all">{fileName}</p>
+        <p className="text-sm sm:text-base font-semibold text-gray-900">{isPdf ? "Match Report" : "Match Preview"}</p>
+        <p className="text-xs sm:text-sm text-gray-600">{isPdf ? "Analysis PDF for this match" : "Visual preview for this match"}</p>
       </div>
 
       {isPdf ? (
@@ -215,7 +208,7 @@ function FreeContentItem({ item }: { item: FreeContentApiItem }) {
           <div className="rounded-xl overflow-hidden shadow-md bg-white border border-gray-100">
             <img
               src={item.file}
-              alt={fileName}
+              alt="Match preview"
               className="w-full h-auto object-contain max-h-56 sm:max-h-64"
               loading="lazy"
             />
@@ -226,10 +219,24 @@ function FreeContentItem({ item }: { item: FreeContentApiItem }) {
             rel="noopener noreferrer"
             className="w-full inline-block bg-gradient-primary text-white py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
           >
-            View Full Image
+            View Image
           </a>
         </div>
       )}
+    </div>
+  );
+}
+
+function PremiumPreviewItem({ item }: { item: PremiumContentApiItem }) {
+  return (
+    <div className="bg-gradient-card/90 rounded-2xl border border-gray-200/60 p-4 sm:p-5 shadow-md">
+      <div className="flex items-center mb-3">
+        <span className="px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-medium border bg-yellow-100 text-yellow-800 border-yellow-200">
+          KAIRO Preview
+        </span>
+      </div>
+      <h4 className="text-sm sm:text-base font-semibold text-gray-900 leading-snug mb-2">{item.title}</h4>
+      <p className="text-xs sm:text-sm text-gray-700 leading-relaxed">{getPremiumPreviewSnippet(item.description)}</p>
     </div>
   );
 }
@@ -510,44 +517,50 @@ export default function MatchDetailsPage() {
                   )}
                 </div>
               ) : (
-                <div className="mt-2 relative rounded-2xl min-h-[26rem] sm:min-h-[28rem]">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 md:gap-8 blur-[2.5px] select-none pointer-events-none p-1">
-                    {premiumContent.length > 0
-                      ? premiumContent.map((item) => <PremiumContentItem key={item.id} item={item} />)
-                      : [1, 2, 3].map((item) => (
-                          <div
-                            key={item}
-                            className="bg-gradient-card rounded-2xl border border-gray-200/50 p-6 hover:shadow-craft-lg transition-all duration-300"
-                          >
-                            <div className="h-4 w-24 bg-gray-200 rounded mb-4" />
-                            <div className="h-3 w-full bg-gray-200 rounded mb-2" />
-                            <div className="h-3 w-5/6 bg-gray-200 rounded" />
-                          </div>
-                        ))}
+                <div className="mt-2 space-y-4 sm:space-y-5">
+                  <div className="w-full rounded-2xl bg-gradient-to-br from-white to-orange-50 border border-orange-200/70 shadow-2xl p-6 sm:p-8 text-center">
+                    <p className="text-sm sm:text-base font-semibold text-orange-700 mb-2">Advanced Analysis Locked</p>
+                    <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-3">Unlock KAIRO Analysis & Teams</h3>
+                    <p className="text-sm sm:text-base text-gray-600 mb-6 max-w-lg mx-auto">
+                      Unlock captain picks, differential teams, and advanced analysis.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        onClick={handleUnlockPremium}
+                        className="w-full bg-gradient-primary text-white py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
+                      >
+                        Unlock Match ₹99
+                      </button>
+                      <button
+                        onClick={handleUnlockSubscription}
+                        className="w-full bg-white text-gray-900 border border-gray-200 py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
+                      >
+                        Monthly ₹999
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="absolute inset-0 rounded-2xl bg-white/50 backdrop-blur-[1.5px] flex items-center justify-center p-4 sm:p-6">
-                    <div className="w-full max-w-md rounded-2xl bg-gradient-to-br from-white to-orange-50 border border-orange-200/70 shadow-2xl p-6 sm:p-8 text-center">
-                      <p className="text-sm sm:text-base font-semibold text-orange-700 mb-2">Advanced Analysis Locked</p>
-                      <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-3">Unlock KAIRO Analysis & Teams</h3>
-                      <p className="text-sm sm:text-base text-gray-600 mb-6">
-                        Unlock captain picks, differential teams, and advanced analysis.
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button
-                          onClick={handleUnlockPremium}
-                          className="w-full bg-gradient-primary text-white py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
-                        >
-                          Unlock Match ₹99
-                        </button>
-                        <button
-                          onClick={handleUnlockSubscription}
-                          className="w-full bg-white text-gray-900 border border-gray-200 py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
-                        >
-                          Monthly ₹999
-                        </button>
+                  <div className="relative rounded-2xl border border-gray-200/60 bg-white/55 overflow-hidden">
+                    <div className="max-h-[24vh] sm:max-h-[26vh] overflow-hidden p-3 sm:p-4">
+                      <div
+                        className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 select-none pointer-events-none blur-[8px] opacity-45"
+                        style={{ maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.35) 72%, transparent 100%)" }}
+                      >
+                        {premiumContent.length > 0
+                          ? premiumContent.slice(0, 2).map((item) => <PremiumPreviewItem key={item.id} item={item} />)
+                          : [1, 2].map((item) => (
+                              <div
+                                key={item}
+                                className="bg-gradient-card rounded-2xl border border-gray-200/50 p-5"
+                              >
+                                <div className="h-4 w-20 bg-gray-200 rounded mb-3" />
+                                <div className="h-3 w-full bg-gray-200 rounded mb-2" />
+                                <div className="h-3 w-4/5 bg-gray-200 rounded" />
+                              </div>
+                            ))}
                       </div>
                     </div>
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-white/45 to-white/85" />
                   </div>
                 </div>
               )}
