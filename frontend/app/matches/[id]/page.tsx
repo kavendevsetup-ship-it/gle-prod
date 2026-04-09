@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import {
@@ -40,6 +40,16 @@ type GalleryImageItem = {
   label: string;
 };
 
+type PdfDocumentItem = {
+  id: number;
+  url: string;
+  label: string;
+};
+
+type PremiumVideoItem = PremiumContentApiItem & {
+  video: string;
+};
+
 let razorpayScriptPromise: Promise<boolean> | null = null;
 
 function loadRazorpayScript(): Promise<boolean> {
@@ -69,13 +79,6 @@ function formatDateTime(dateStr: string) {
 
 function isImportantPremiumLine(line: string): boolean {
   return /(captain|vice\s*captain|gl\s*team|strategy)/i.test(line);
-}
-
-function getPremiumPreviewSnippet(description: string, maxLength = 180): string {
-  const cleaned = (description || "").replace(/\s+/g, " ").trim();
-  if (!cleaned) return "Expert match insights available after unlocking.";
-  if (cleaned.length <= maxLength) return cleaned;
-  return `${cleaned.slice(0, maxLength).trimEnd()}...`;
 }
 
 function formatPremiumContent(description: string): PremiumBlock[] {
@@ -162,7 +165,26 @@ function formatPremiumContent(description: string): PremiumBlock[] {
   return blocks;
 }
 
-function FreeContentItem({ item }: { item: FreeContentApiItem }) {
+function resolvePremiumContentType(item: PremiumContentApiItem): "text" | "image" | "video" {
+  if (item.content_type === "video") return "video";
+  if (item.content_type === "image") return "image";
+  if (item.content_type === "text") return "text";
+  if (item.video) return "video";
+  if (item.image) return "image";
+  return "text";
+}
+
+function resolveFreeContentType(item: FreeContentApiItem): "pdf" | "image" | "text" {
+  const explicitType = (item.content_type || item.type || "pdf").toLowerCase();
+  if (explicitType === "pdf" || explicitType === "image" || explicitType === "text") {
+    return explicitType;
+  }
+
+  if ((item.text_body || item.text_title || "").trim()) return "text";
+  return "pdf";
+}
+
+function FreePdfAnalysisCard({ pdfCount, onOpen }: { pdfCount: number; onOpen: () => void }) {
   return (
     <div className="bg-gradient-card rounded-2xl border border-gray-200/50 p-6 hover:shadow-craft-lg transition-all duration-300">
       <div className="flex items-center justify-between mb-4">
@@ -174,30 +196,274 @@ function FreeContentItem({ item }: { item: FreeContentApiItem }) {
       </div>
 
       <div className="mb-4 space-y-2">
-        <p className="text-sm sm:text-base font-semibold text-gray-900">Match Report</p>
-        <p className="text-xs sm:text-sm text-gray-600">Analysis PDF for this match</p>
+        <p className="text-sm sm:text-base font-semibold text-gray-900">Match Reports</p>
+        <p className="text-xs sm:text-sm text-gray-600">
+          {pdfCount > 1 ? `${pdfCount} PDF reports available` : "1 PDF report available"}
+        </p>
       </div>
 
       <div className="space-y-3">
         <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
-          <p className="text-xs sm:text-sm text-blue-800 font-medium">PDF ready to view or download</p>
+          <p className="text-xs sm:text-sm text-blue-800 font-medium">Secure in-app PDF viewing. No external redirect.</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-          <a
-            href={item.file}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-gradient-primary text-white py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
+
+        <button
+          type="button"
+          onClick={onOpen}
+          className="w-full inline-block bg-gradient-primary text-white py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
+        >
+          View Analysis
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FreeTextReportCard({ textCount, onOpen }: { textCount: number; onOpen: () => void }) {
+  return (
+    <div className="bg-gradient-card rounded-2xl border border-gray-200/50 p-6 hover:shadow-craft-lg transition-all duration-300">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <span className="px-3 py-1 rounded-full text-xs font-medium border bg-emerald-100 text-emerald-800 border-emerald-200">
+            TEXT
+          </span>
+        </div>
+      </div>
+
+      <div className="mb-4 space-y-2">
+        <p className="text-sm sm:text-base font-semibold text-gray-900">Text Report</p>
+        <p className="text-xs sm:text-sm text-gray-600">
+          {textCount > 1 ? `${textCount} analysis notes available` : "1 analysis note available"}
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+          <p className="text-xs sm:text-sm text-emerald-800 font-medium">Structured free text insights with clean readability.</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onOpen}
+          className="w-full inline-block bg-gradient-primary text-white py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
+        >
+          View Analysis
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FreeTextContentItem({ item }: { item: FreeContentApiItem }) {
+  const title = (item.text_title || "Free Analysis").trim();
+  const body = (item.text_body || "").trim();
+  const blocks = formatPremiumContent(body);
+
+  return (
+    <div className="bg-gradient-card/95 rounded-2xl border border-gray-200/70 p-5 sm:p-6 shadow-lg">
+      <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">{title}</h4>
+
+      <div className="space-y-3 text-sm sm:text-base text-gray-800 leading-relaxed">
+        {blocks.length > 0 ? (
+          blocks.map((block, index) => {
+            if (block.type === "heading") {
+              return (
+                <div key={`${item.id}-free-heading-${index}`} className="rounded-xl border border-gray-100 bg-white/80 px-4 py-3">
+                  <h5 className="font-semibold text-gray-900">{block.text}</h5>
+                </div>
+              );
+            }
+
+            if (block.type === "keyValue") {
+              return (
+                <div key={`${item.id}-free-kv-${index}`} className="rounded-xl border border-gray-100 bg-white/80 px-4 py-3">
+                  <p>
+                    <span className="font-semibold text-gray-900">{block.key}: </span>
+                    <span>{block.value}</span>
+                  </p>
+                </div>
+              );
+            }
+
+            if (block.type === "list") {
+              return (
+                <div key={`${item.id}-free-list-${index}`} className="rounded-xl border border-gray-100 bg-white/80 px-4 py-3">
+                  <ul className="space-y-2 pl-5 list-disc marker:text-emerald-600">
+                    {block.items.map((listItem, itemIndex) => (
+                      <li key={`${item.id}-free-list-item-${index}-${itemIndex}`}>{listItem}</li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            }
+
+            return (
+              <div key={`${item.id}-free-paragraph-${index}`} className="rounded-xl border border-gray-100 bg-white/80 px-4 py-3">
+                <p>{block.text}</p>
+              </div>
+            );
+          })
+        ) : (
+          <div className="rounded-xl border border-gray-100 bg-white/80 px-4 py-3">
+            <p>{body}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FreeTextContentModal({
+  isOpen,
+  items,
+  onClose,
+}: {
+  isOpen: boolean;
+  items: FreeContentApiItem[];
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[121] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
+      <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl border border-gray-200">
+        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs sm:text-sm text-emerald-700 font-semibold">📝 Text Report</p>
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900">Free Match Analysis</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-gray-200 bg-white text-gray-700 w-9 h-9 flex items-center justify-center hover:bg-gray-50"
+            aria-label="Close text report"
           >
-            Open PDF
-          </a>
-          <a
-            href={item.file}
-            download
-            className="bg-white text-gray-900 border border-gray-200 py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
-          >
-            Download
-          </a>
+            ✕
+          </button>
+        </div>
+
+        <div className="overflow-y-auto max-h-[calc(90vh-84px)] p-4 sm:p-6 space-y-4 sm:space-y-5">
+          {items.map((item) => (
+            <FreeTextContentItem key={item.id} item={item} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PdfViewerModal({
+  isOpen,
+  documents,
+  activeIndex,
+  onClose,
+  onPrev,
+  onNext,
+  onSetIndex,
+}: {
+  isOpen: boolean;
+  documents: PdfDocumentItem[];
+  activeIndex: number;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onSetIndex: (index: number) => void;
+}) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key === "ArrowLeft") onPrev();
+      if (event.key === "ArrowRight") onNext();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose, onNext, onPrev]);
+
+  if (!isOpen || documents.length === 0) return null;
+
+  const activeDoc = documents[activeIndex];
+  const iframeSrc = `${activeDoc.url}#toolbar=0&navpanes=0&statusbar=0`;
+
+  return (
+    <div
+      className="fixed inset-0 z-[122] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      <div className="relative w-full max-w-5xl h-[82vh] rounded-2xl border border-white/20 bg-white shadow-2xl overflow-hidden">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 rounded-full bg-white text-gray-900 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center border border-gray-200 hover:bg-gray-50 transition-colors"
+          aria-label="Close PDF viewer"
+        >
+          ✕
+        </button>
+
+        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 px-3 py-1.5 rounded-full bg-gray-900/85 text-white text-xs sm:text-sm font-medium">
+          PDF Analysis • {activeIndex + 1} / {documents.length}
+        </div>
+
+        <div className="h-full pt-14 sm:pt-16 pb-14 sm:pb-16">
+          <iframe
+            title={activeDoc.label}
+            src={iframeSrc}
+            className="w-full h-full border-0"
+            sandbox="allow-same-origin allow-scripts"
+            referrerPolicy="no-referrer"
+            onContextMenu={(event) => event.preventDefault()}
+          />
+        </div>
+
+        <div className="absolute bottom-0 inset-x-0 bg-white/95 border-t border-gray-200 px-4 sm:px-6 py-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={onPrev}
+              className="bg-white text-gray-900 border border-gray-200 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-50"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={onNext}
+              className="bg-white text-gray-900 border border-gray-200 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-50"
+            >
+              Next
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="bg-gradient-primary text-white py-2.5 rounded-lg text-sm font-semibold hover:shadow-lg"
+            >
+              Close
+            </button>
+          </div>
+
+          {documents.length > 1 ? (
+            <div className="mt-3 flex justify-center gap-2">
+              {documents.map((doc, index) => (
+                <button
+                  key={doc.id}
+                  type="button"
+                  onClick={() => onSetIndex(index)}
+                  className={`h-1.5 rounded-full transition-all duration-200 ${
+                    index === activeIndex ? "w-6 bg-gray-900" : "w-2 bg-gray-400"
+                  }`}
+                  aria-label={`Go to PDF ${index + 1}`}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -375,51 +641,34 @@ function ImageViewerModal({
   );
 }
 
-function KairoVisualAnalysisCard({ imageCount, onOpen }: { imageCount: number; onOpen: () => void }) {
+
+function PremiumContentCard({
+  icon,
+  title,
+  description,
+  ctaLabel,
+  onClick,
+}: {
+  icon: string;
+  title: string;
+  description: string;
+  ctaLabel: string;
+  onClick: () => void;
+}) {
   return (
-    <div className="bg-gradient-card rounded-2xl border border-gray-200/50 p-6 hover:shadow-craft-lg transition-all duration-300">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-2">
-          <span className="px-3 py-1 rounded-full text-xs font-medium border bg-yellow-100 text-yellow-800 border-yellow-200">
-            KAIRO IMAGE
-          </span>
-        </div>
+    <div className="bg-gradient-card rounded-2xl border border-gray-200/60 p-5 sm:p-6 shadow-md hover:shadow-craft-lg transition-all duration-300">
+      <div className="flex items-center gap-2.5 mb-3">
+        <span className="text-lg" aria-hidden="true">{icon}</span>
+        <h3 className="text-base sm:text-lg font-semibold text-gray-900">{title}</h3>
       </div>
-
-      <div className="mb-4 space-y-2">
-        <p className="text-sm sm:text-base font-semibold text-gray-900">KAIRO Visual Analysis</p>
-        <p className="text-xs sm:text-sm text-gray-600">
-          {imageCount > 1 ? `${imageCount} premium analysis images available` : "1 premium analysis image available"}
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
-          <p className="text-xs sm:text-sm text-amber-800 font-medium">Swipe or use arrows to browse premium analysis images</p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onOpen}
-          className="w-full inline-block bg-gradient-primary text-white py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
-        >
-          View Analysis
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function PremiumPreviewItem({ item }: { item: PremiumContentApiItem }) {
-  return (
-    <div className="bg-gradient-card/90 rounded-2xl border border-gray-200/60 p-4 sm:p-5 shadow-md">
-      <div className="flex items-center mb-3">
-        <span className="px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-medium border bg-yellow-100 text-yellow-800 border-yellow-200">
-          KAIRO Preview
-        </span>
-      </div>
-      <h4 className="text-sm sm:text-base font-semibold text-gray-900 leading-snug mb-2">{item.title}</h4>
-      <p className="text-xs sm:text-sm text-gray-700 leading-relaxed">{getPremiumPreviewSnippet(item.description)}</p>
+      <p className="text-sm text-gray-600 leading-relaxed mb-4">{description}</p>
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full inline-block bg-gradient-primary text-white py-2.5 px-4 rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 text-center"
+      >
+        {ctaLabel}
+      </button>
     </div>
   );
 }
@@ -509,6 +758,262 @@ function PremiumContentItem({ item }: { item: PremiumContentApiItem }) {
   );
 }
 
+function TextContentModal({
+  isOpen,
+  items,
+  onClose,
+}: {
+  isOpen: boolean;
+  items: PremiumContentApiItem[];
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[125] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
+      <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl border border-gray-200">
+        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs sm:text-sm text-amber-700 font-semibold">📝 Text Content</p>
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900">Premium Match Analysis</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-gray-200 bg-white text-gray-700 w-9 h-9 flex items-center justify-center hover:bg-gray-50"
+            aria-label="Close text analysis"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="overflow-y-auto max-h-[calc(90vh-84px)] p-4 sm:p-6 space-y-4 sm:space-y-5">
+          {items.map((item) => (
+            <PremiumContentItem key={item.id} item={item} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VideoContentModal({
+  isOpen,
+  videos,
+  activeIndex,
+  onClose,
+  onPrev,
+  onNext,
+  onSetIndex,
+}: {
+  isOpen: boolean;
+  videos: PremiumVideoItem[];
+  activeIndex: number;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onSetIndex: (index: number) => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsPlaying(false);
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key === "ArrowLeft") onPrev();
+      if (event.key === "ArrowRight") onNext();
+      if (event.key === " ") {
+        event.preventDefault();
+        const video = videoRef.current;
+        if (!video) return;
+        if (video.paused) {
+          video.play();
+          setIsPlaying(true);
+        } else {
+          video.pause();
+          setIsPlaying(false);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose, onNext, onPrev]);
+
+  useEffect(() => {
+    setIsPlaying(false);
+  }, [activeIndex]);
+
+  if (!isOpen || videos.length === 0) return null;
+
+  const activeVideo = videos[activeIndex];
+
+  const togglePlayback = async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      await video.play();
+      setIsPlaying(true);
+    } else {
+      video.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  const openFullscreen = async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+    await video.requestFullscreen();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[130] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      <div className="relative w-full max-w-5xl rounded-2xl border border-white/20 bg-black/40 shadow-2xl overflow-hidden">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 rounded-full bg-white/90 text-gray-900 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white transition-colors"
+          aria-label="Close video analysis"
+        >
+          ✕
+        </button>
+
+        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 px-3 py-1.5 rounded-full bg-black/55 text-white text-xs sm:text-sm font-medium">
+          🎥 Video Content • {activeIndex + 1} / {videos.length}
+        </div>
+
+        <div className="relative flex items-center justify-center min-h-[55vh] sm:min-h-[64vh] px-2 sm:px-12 py-12 sm:py-14">
+          <video
+            key={activeVideo.id}
+            ref={videoRef}
+            src={activeVideo.video}
+            className="w-full h-full max-h-[60vh] sm:max-h-[70vh] object-contain rounded-xl"
+            controls={false}
+            controlsList="nodownload noplaybackrate noremoteplayback"
+            disablePictureInPicture
+            playsInline
+            onContextMenu={(event) => event.preventDefault()}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+          />
+
+          {videos.length > 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={onPrev}
+                className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/85 text-gray-900 items-center justify-center hover:bg-white transition-colors"
+                aria-label="Previous video"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={onNext}
+                className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/85 text-gray-900 items-center justify-center hover:bg-white transition-colors"
+                aria-label="Next video"
+              >
+                ›
+              </button>
+            </>
+          ) : null}
+        </div>
+
+        <div className="px-4 sm:px-6 pb-4 sm:pb-6">
+          <p className="text-white/85 text-sm mb-3 font-medium leading-relaxed">{activeVideo.title || "KAIRO Video Analysis"}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={togglePlayback}
+              className="bg-white text-gray-900 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-100"
+            >
+              {isPlaying ? "Pause" : "Play"}
+            </button>
+            <button
+              type="button"
+              onClick={openFullscreen}
+              className="bg-white text-gray-900 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-100"
+            >
+              Fullscreen
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="bg-gradient-primary text-white py-2.5 rounded-lg text-sm font-semibold hover:shadow-lg"
+            >
+              Close
+            </button>
+          </div>
+          <p className="mt-3 text-xs text-white/65">Streaming enabled. Download and right-click options are restricted.</p>
+
+          {videos.length > 1 ? (
+            <div className="mt-3 flex justify-center gap-2">
+              {videos.map((video, index) => (
+                <button
+                  key={video.id}
+                  type="button"
+                  onClick={() => onSetIndex(index)}
+                  className={`h-1.5 rounded-full transition-all duration-200 ${
+                    index === activeIndex ? "w-6 bg-white" : "w-2 bg-white/45"
+                  }`}
+                  aria-label={`Go to video ${index + 1}`}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LockedPremiumPreviewCards() {
+  const cards = [
+    { id: "text", icon: "📝", title: "Text Content", action: "View Analysis" },
+    { id: "image", icon: "🖼️", title: "Image Content", action: "View Analysis" },
+    { id: "video", icon: "🎥", title: "Video Content", action: "Watch Analysis" },
+  ];
+
+  return (
+    <div className="relative rounded-2xl border border-gray-200/60 bg-white/55 overflow-hidden">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 p-3 sm:p-4 select-none pointer-events-none blur-[6px] opacity-45">
+        {cards.map((card) => (
+          <div key={card.id} className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+            <p className="text-lg mb-2" aria-hidden="true">{card.icon}</p>
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">{card.title}</h4>
+            <p className="text-xs text-gray-600 mb-3">Premium match analysis</p>
+            <button type="button" className="w-full rounded-lg bg-gray-200 text-gray-700 text-xs font-medium py-2">
+              {card.action}
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-white/45 to-white/85" />
+    </div>
+  );
+}
+
 export default function MatchDetailsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -519,29 +1024,98 @@ export default function MatchDetailsPage() {
   const [premiumContent, setPremiumContent] = useState<PremiumContentApiItem[]>([]);
   const [access, setAccess] = useState(false);
   const [isSubscriptionAccess, setIsSubscriptionAccess] = useState(false);
+  const [isFreeTextModalOpen, setIsFreeTextModalOpen] = useState(false);
+  const [isPdfViewerOpen, setIsPdfViewerOpen] = useState(false);
+  const [activePdfIndex, setActivePdfIndex] = useState(0);
   const [isFreeImageViewerOpen, setIsFreeImageViewerOpen] = useState(false);
   const [activeFreeImageIndex, setActiveFreeImageIndex] = useState(0);
+  const [isTextContentModalOpen, setIsTextContentModalOpen] = useState(false);
   const [isPremiumImageViewerOpen, setIsPremiumImageViewerOpen] = useState(false);
   const [activePremiumImageIndex, setActivePremiumImageIndex] = useState(0);
+  const [isVideoContentModalOpen, setIsVideoContentModalOpen] = useState(false);
+  const [activeVideoIndex, setActiveVideoIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const freePdfContent = freeContent.filter((item) => item.type === "pdf");
-  const freeImageContent = freeContent.filter((item) => item.type === "image");
+  const freeTextContent = freeContent.filter((item) => {
+    const contentType = resolveFreeContentType(item);
+    const hasText = Boolean((item.text_title || "").trim() || (item.text_body || "").trim());
+    return contentType === "text" && hasText;
+  });
+
+  const freePdfContent = freeContent.filter(
+    (item) => resolveFreeContentType(item) === "pdf" && Boolean(item.file)
+  );
+
+  const freePdfDocuments: PdfDocumentItem[] = freePdfContent.map((item, index) => ({
+    id: item.id,
+    url: item.file as string,
+    label: item.text_title || `Match Report ${index + 1}`,
+  }));
+
+  const freeImageContent = freeContent.filter(
+    (item) => resolveFreeContentType(item) === "image" && Boolean(item.file)
+  );
+
   const freeImageGallery: GalleryImageItem[] = freeImageContent.map((item) => ({
     id: item.id,
-    file: item.file,
+    file: item.file as string,
     label: "GL Analysis",
   }));
 
-  const premiumTextContent = premiumContent.filter((item) => !item.image);
+  const premiumTextContent = premiumContent.filter((item) => {
+    const contentType = resolvePremiumContentType(item);
+    const hasText = Boolean((item.title || "").trim() || (item.description || "").trim());
+    return contentType === "text" && hasText;
+  });
+
   const premiumImageGallery: GalleryImageItem[] = premiumContent
-    .filter((item) => Boolean(item.image))
+    .filter((item) => resolvePremiumContentType(item) === "image" && Boolean(item.image))
     .map((item) => ({
       id: item.id,
       file: item.image as string,
-      label: "KAIRO Visual Analysis",
+      label: item.title || "KAIRO Visual Analysis",
     }));
+
+  const premiumVideoContent: PremiumVideoItem[] = premiumContent
+    .filter((item) => resolvePremiumContentType(item) === "video" && Boolean(item.video))
+    .map((item) => ({
+      ...item,
+      video: item.video as string,
+    }));
+
+  const openFreeTextModal = () => {
+    if (freeTextContent.length === 0) return;
+    setIsFreeTextModalOpen(true);
+  };
+
+  const closeFreeTextModal = () => {
+    setIsFreeTextModalOpen(false);
+  };
+
+  const openPdfViewer = () => {
+    if (freePdfDocuments.length === 0) return;
+    setActivePdfIndex(0);
+    setIsPdfViewerOpen(true);
+  };
+
+  const closePdfViewer = () => {
+    setIsPdfViewerOpen(false);
+  };
+
+  const showPreviousPdf = () => {
+    setActivePdfIndex((prev) => {
+      if (freePdfDocuments.length === 0) return 0;
+      return prev === 0 ? freePdfDocuments.length - 1 : prev - 1;
+    });
+  };
+
+  const showNextPdf = () => {
+    setActivePdfIndex((prev) => {
+      if (freePdfDocuments.length === 0) return 0;
+      return prev === freePdfDocuments.length - 1 ? 0 : prev + 1;
+    });
+  };
 
   const openFreeImageViewer = () => {
     if (freeImageGallery.length === 0) return;
@@ -551,6 +1125,15 @@ export default function MatchDetailsPage() {
 
   const closeFreeImageViewer = () => {
     setIsFreeImageViewerOpen(false);
+  };
+
+  const openTextContentModal = () => {
+    if (premiumTextContent.length === 0) return;
+    setIsTextContentModalOpen(true);
+  };
+
+  const closeTextContentModal = () => {
+    setIsTextContentModalOpen(false);
   };
 
   const showPreviousFreeImage = () => {
@@ -577,6 +1160,30 @@ export default function MatchDetailsPage() {
     setIsPremiumImageViewerOpen(false);
   };
 
+  const openVideoContentModal = () => {
+    if (premiumVideoContent.length === 0) return;
+    setActiveVideoIndex(0);
+    setIsVideoContentModalOpen(true);
+  };
+
+  const closeVideoContentModal = () => {
+    setIsVideoContentModalOpen(false);
+  };
+
+  const showPreviousVideo = () => {
+    setActiveVideoIndex((prev) => {
+      if (premiumVideoContent.length === 0) return 0;
+      return prev === 0 ? premiumVideoContent.length - 1 : prev - 1;
+    });
+  };
+
+  const showNextVideo = () => {
+    setActiveVideoIndex((prev) => {
+      if (premiumVideoContent.length === 0) return 0;
+      return prev === premiumVideoContent.length - 1 ? 0 : prev + 1;
+    });
+  };
+
   const showPreviousPremiumImage = () => {
     setActivePremiumImageIndex((prev) => {
       if (premiumImageGallery.length === 0) return 0;
@@ -593,8 +1200,14 @@ export default function MatchDetailsPage() {
 
   const refreshAccess = async (targetMatchId: number | string) => {
     const accessResult = await getMatchAccess(targetMatchId);
-    setAccess(!!(accessResult.has_access ?? accessResult.access));
+    const hasAccess = !!(accessResult.has_access ?? accessResult.access);
+    setAccess(hasAccess);
     setIsSubscriptionAccess(!!accessResult.is_subscription);
+
+    if (hasAccess) {
+      const details = await getMatchDetails(targetMatchId);
+      setPremiumContent(details.premium_content || []);
+    }
   };
 
   const initiatePayment = async (
@@ -760,24 +1373,43 @@ export default function MatchDetailsPage() {
 
               {access ? (
                 <div className="mt-2 space-y-4 sm:space-y-6">
-                  {premiumTextContent.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
-                      {premiumTextContent.map((item) => <PremiumContentItem key={item.id} item={item} />)}
+                  {premiumTextContent.length > 0 || premiumImageGallery.length > 0 || premiumVideoContent.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                      {premiumTextContent.length > 0 ? (
+                        <PremiumContentCard
+                          icon="📝"
+                          title="Text Content"
+                          description={`${premiumTextContent.length} premium analysis section${premiumTextContent.length > 1 ? "s" : ""} available with structured insights.`}
+                          ctaLabel="View Analysis"
+                          onClick={openTextContentModal}
+                        />
+                      ) : null}
+
+                      {premiumImageGallery.length > 0 ? (
+                        <PremiumContentCard
+                          icon="🖼️"
+                          title="Image Content"
+                          description={`${premiumImageGallery.length} premium image${premiumImageGallery.length > 1 ? "s" : ""} available in gallery mode.`}
+                          ctaLabel="View Analysis"
+                          onClick={openPremiumImageViewer}
+                        />
+                      ) : null}
+
+                      {premiumVideoContent.length > 0 ? (
+                        <PremiumContentCard
+                          icon="🎥"
+                          title="Video Content"
+                          description={`${premiumVideoContent.length} premium video${premiumVideoContent.length > 1 ? "s" : ""} available for streaming.`}
+                          ctaLabel="Watch Analysis"
+                          onClick={openVideoContentModal}
+                        />
+                      ) : null}
                     </div>
-                  ) : null}
-
-                  {premiumImageGallery.length > 0 ? (
-                    <KairoVisualAnalysisCard
-                      imageCount={premiumImageGallery.length}
-                      onOpen={openPremiumImageViewer}
-                    />
-                  ) : null}
-
-                  {premiumTextContent.length === 0 && premiumImageGallery.length === 0 ? (
+                  ) : (
                     <div className="bg-gradient-card rounded-2xl border border-gray-200/50 p-6 text-gray-600">
                       No premium content available.
                     </div>
-                  ) : null}
+                  )}
                 </div>
               ) : (
                 <div className="mt-2 space-y-4 sm:space-y-5">
@@ -803,28 +1435,7 @@ export default function MatchDetailsPage() {
                     </div>
                   </div>
 
-                  <div className="relative rounded-2xl border border-gray-200/60 bg-white/55 overflow-hidden">
-                    <div className="max-h-[24vh] sm:max-h-[26vh] overflow-hidden p-3 sm:p-4">
-                      <div
-                        className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 select-none pointer-events-none blur-[8px] opacity-45"
-                        style={{ maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.35) 72%, transparent 100%)" }}
-                      >
-                        {premiumContent.length > 0
-                          ? premiumContent.slice(0, 2).map((item) => <PremiumPreviewItem key={item.id} item={item} />)
-                          : [1, 2].map((item) => (
-                              <div
-                                key={item}
-                                className="bg-gradient-card rounded-2xl border border-gray-200/50 p-5"
-                              >
-                                <div className="h-4 w-20 bg-gray-200 rounded mb-3" />
-                                <div className="h-3 w-full bg-gray-200 rounded mb-2" />
-                                <div className="h-3 w-4/5 bg-gray-200 rounded" />
-                              </div>
-                            ))}
-                      </div>
-                    </div>
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-white/45 to-white/85" />
-                  </div>
+                  <LockedPremiumPreviewCards />
                 </div>
               )}
             </section>
@@ -838,15 +1449,19 @@ export default function MatchDetailsPage() {
               </div>
 
               <div className="flex flex-col gap-4 sm:gap-6">
-                {freePdfContent.map((item) => (
-                  <FreeContentItem key={item.id} item={item} />
-                ))}
-
-                {freeImageContent.length > 0 ? (
-                    <GLAnalysisCard imageCount={freeImageContent.length} onOpen={openFreeImageViewer} />
+                {freeTextContent.length > 0 ? (
+                  <FreeTextReportCard textCount={freeTextContent.length} onOpen={openFreeTextModal} />
                 ) : null}
 
-                {freePdfContent.length === 0 && freeImageContent.length === 0 ? (
+                {freePdfDocuments.length > 0 ? (
+                  <FreePdfAnalysisCard pdfCount={freePdfDocuments.length} onOpen={openPdfViewer} />
+                ) : null}
+
+                {freeImageContent.length > 0 ? (
+                  <GLAnalysisCard imageCount={freeImageContent.length} onOpen={openFreeImageViewer} />
+                ) : null}
+
+                {freeTextContent.length === 0 && freePdfDocuments.length === 0 && freeImageContent.length === 0 ? (
                   <div className="bg-gradient-card rounded-2xl border border-gray-200/50 p-6 text-gray-600">
                     No free content available.
                   </div>
@@ -855,6 +1470,38 @@ export default function MatchDetailsPage() {
             </section>
           </>
         )}
+
+          <FreeTextContentModal
+            isOpen={isFreeTextModalOpen}
+            items={freeTextContent}
+            onClose={closeFreeTextModal}
+          />
+
+          <PdfViewerModal
+            isOpen={isPdfViewerOpen}
+            documents={freePdfDocuments}
+            activeIndex={activePdfIndex}
+            onClose={closePdfViewer}
+            onPrev={showPreviousPdf}
+            onNext={showNextPdf}
+            onSetIndex={setActivePdfIndex}
+          />
+
+          <TextContentModal
+            isOpen={isTextContentModalOpen}
+            items={premiumTextContent}
+            onClose={closeTextContentModal}
+          />
+
+          <VideoContentModal
+            isOpen={isVideoContentModalOpen}
+            videos={premiumVideoContent}
+            activeIndex={activeVideoIndex}
+            onClose={closeVideoContentModal}
+            onPrev={showPreviousVideo}
+            onNext={showNextVideo}
+            onSetIndex={setActiveVideoIndex}
+          />
 
           <ImageViewerModal
             isOpen={isFreeImageViewerOpen}

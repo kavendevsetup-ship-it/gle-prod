@@ -8,15 +8,20 @@ export type MatchApiItem = {
 
 export type FreeContentApiItem = {
   id: number;
-  type: "pdf" | "image";
-  file: string;
+  type: "pdf" | "image" | "text";
+  content_type?: "pdf" | "image" | "text";
+  file?: string | null;
+  text_title?: string | null;
+  text_body?: string | null;
 };
 
 export type PremiumContentApiItem = {
   id: number;
+  content_type?: "text" | "image" | "video";
   title: string;
   description: string;
   image?: string | null;
+  video?: string | null;
 };
 
 export type MatchDetailApiResponse = {
@@ -128,10 +133,12 @@ export async function fetchMatches(): Promise<MatchApiItem[]> {
 export async function getMatchDetails(
   id: number | string
 ): Promise<MatchDetailApiResponse> {
+  const token = getStoredAuthToken();
   const response = await fetch(buildApiUrl(`match/${id}/`), {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
 
