@@ -392,7 +392,7 @@ function PdfViewerModal({
   if (!isOpen || documents.length === 0) return null;
 
   const activeDoc = documents[activeIndex];
-  const iframeSrc = `${activeDoc.url}#toolbar=0&navpanes=0&statusbar=0`;
+  const pdfSrc = `${activeDoc.url}#toolbar=0&navpanes=0&statusbar=0`;
 
   return (
     <div
@@ -413,15 +413,27 @@ function PdfViewerModal({
           PDF Analysis • {activeIndex + 1} / {documents.length}
         </div>
 
-        <div className="h-full pt-14 sm:pt-16 pb-14 sm:pb-16">
-          <iframe
-            title={activeDoc.label}
-            src={iframeSrc}
-            className="w-full h-full border-0"
-            sandbox="allow-same-origin allow-scripts"
-            referrerPolicy="no-referrer"
-            onContextMenu={(event) => event.preventDefault()}
-          />
+        <div className="h-full pt-14 sm:pt-16 pb-14 sm:pb-16 px-2 sm:px-3">
+          <object
+            key={activeDoc.id}
+            data={pdfSrc}
+            type="application/pdf"
+            className="w-full h-full rounded-lg bg-white"
+          >
+            <div className="h-full w-full flex items-center justify-center px-6 text-center">
+              <div className="max-w-sm">
+                <p className="text-sm text-gray-700 mb-3">Unable to preview this PDF in the embedded viewer.</p>
+                <a
+                  href={activeDoc.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center bg-gradient-primary text-white py-2 px-4 rounded-lg text-sm font-medium"
+                >
+                  Open PDF
+                </a>
+              </div>
+            </div>
+          </object>
         </div>
 
         <div className="absolute bottom-0 inset-x-0 bg-white/95 border-t border-gray-200 px-4 sm:px-6 py-3">
