@@ -18,6 +18,16 @@ export const TermsAcceptance: React.FC<TermsAcceptanceProps> = ({
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
+  const openTermsModal = () => {
+    setShowPrivacyModal(false);
+    setShowTermsModal(true);
+  };
+
+  const openPrivacyModal = () => {
+    setShowTermsModal(false);
+    setShowPrivacyModal(true);
+  };
+
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onAccept(e.target.checked);
   };
@@ -44,7 +54,7 @@ export const TermsAcceptance: React.FC<TermsAcceptanceProps> = ({
           I agree to the{' '}
           <button
             type="button"
-            onClick={() => setShowTermsModal(true)}
+            onClick={openTermsModal}
             className="text-orange-600 hover:text-orange-700 underline font-medium transition-colors"
           >
             Terms & Conditions
@@ -52,7 +62,7 @@ export const TermsAcceptance: React.FC<TermsAcceptanceProps> = ({
           {' '}and{' '}
           <button
             type="button"
-            onClick={() => setShowPrivacyModal(true)}
+            onClick={openPrivacyModal}
             className="text-orange-600 hover:text-orange-700 underline font-medium transition-colors"
           >
             Privacy Policy

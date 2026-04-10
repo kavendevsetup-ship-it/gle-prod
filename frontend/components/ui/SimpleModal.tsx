@@ -110,29 +110,22 @@ export const SimpleModal: React.FC<SimpleModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
-          {/* Enhanced Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99998]"
-            onClick={handleBackdropClick}
-          />
-          
-          {/* Enhanced Modal Container */}
-          <div 
-            className="fixed inset-0 flex items-center justify-center z-[99999] p-4"
-            onClick={handleBackdropClick}
-          >
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
+          className="fixed inset-0 z-[99999] bg-black/55 backdrop-blur-md p-4 sm:p-6 overflow-y-auto"
+          onClick={handleBackdropClick}
+        >
+          <div className="min-h-full flex items-center justify-center">
             <motion.div
               ref={modalRef}
-              initial={{ scale: 0.9, opacity: 0, y: 30 }}
+              initial={{ scale: 0.94, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 30 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden relative"
+              exit={{ scale: 0.96, opacity: 0, y: 16 }}
+              transition={{ type: "spring", damping: 26, stiffness: 300 }}
+              className="relative w-full max-w-3xl max-h-[80vh] overflow-hidden rounded-3xl border border-white/35 bg-white/80 shadow-2xl backdrop-blur-xl"
               role="dialog"
               aria-modal="true"
               aria-labelledby="modal-title"
@@ -140,30 +133,28 @@ export const SimpleModal: React.FC<SimpleModalProps> = ({
               tabIndex={-1}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Enhanced Header with Close Button */}
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <h2 
+              <div className="sticky top-0 z-10 border-b border-white/50 bg-white/75 px-5 sm:px-6 py-4 backdrop-blur-xl flex items-center justify-between">
+                <h2
                   id="modal-title"
-                  className="text-xl sm:text-2xl font-bold text-gray-900"
+                  className="text-lg sm:text-xl font-bold text-gray-900 pr-3"
                 >
                   {title}
                 </h2>
-                
-                {/* Enhanced Close Button */}
+
                 <button
+                  type="button"
                   onClick={onClose}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200 flex items-center justify-center min-w-[44px] min-h-[44px]"
+                  className="p-2 rounded-full hover:bg-gray-100/80 transition-colors duration-200 flex items-center justify-center min-w-[40px] min-h-[40px]"
                   aria-label={`Close ${title}`}
                 >
-                  <X size={20} className="text-gray-500" />
+                  <X size={20} className="text-gray-600" />
                 </button>
               </div>
 
-              {/* Enhanced Scrollable Content */}
-              <div 
-                id="modal-body" 
-                className="overflow-y-auto max-h-[calc(90vh-80px)] px-6 py-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
-                style={{ 
+              <div
+                id="modal-body"
+                className="overflow-y-auto max-h-[calc(80vh-72px)] px-5 sm:px-6 py-5 sm:py-6"
+                style={{
                   WebkitOverflowScrolling: 'touch',
                   overscrollBehavior: 'contain'
                 }}
@@ -172,7 +163,7 @@ export const SimpleModal: React.FC<SimpleModalProps> = ({
               </div>
             </motion.div>
           </div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   );

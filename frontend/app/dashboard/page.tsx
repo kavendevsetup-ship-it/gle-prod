@@ -716,6 +716,46 @@ export default function DashboardPage() {
             </motion.section>
 
             <motion.section id="expert-analysis-section" className="relative" />
+            <motion.section
+              initial={{ opacity: 0, y: 20, rotateX: 6 }}
+              animate={{ opacity: 1, y: 0, rotateX: 0 }}
+              transition={{ delay: 0.3, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="relative"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-sky-500/5 via-cyan-500/5 to-blue-500/5 rounded-3xl blur-xl" />
+              <div
+                className="relative bg-white/15 backdrop-blur-2xl border border-white/30 rounded-3xl p-1 shadow-2xl shadow-black/5"
+                style={{
+                  backgroundImage: "linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.08) 100%)",
+                  backdropFilter: "blur(24px) saturate(180%)",
+                  WebkitBackdropFilter: "blur(24px) saturate(180%)",
+                }}
+              >
+                <div className="bg-white/40 backdrop-blur-sm rounded-3xl p-6 lg:p-8">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-3 3-3-3z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-2xl lg:text-3xl font-bold text-gray-900">Help &amp; Support</h2>
+                      <p className="text-gray-600">Need help? Contact us at:</p>
+                    </div>
+                  </div>
+
+                  <a
+                    href="mailto:grandleagueexpert2024@gmail.com"
+                    className="inline-flex items-center gap-2 text-base sm:text-lg font-semibold text-blue-700 underline underline-offset-4 hover:text-blue-800 transition-colors"
+                  >
+                    <span aria-hidden="true">📧</span>
+                    <span>grandleagueexpert2024@gmail.com</span>
+                  </a>
+
+                  <p className="mt-3 text-sm text-gray-600">We typically respond within 24 hours.</p>
+                </div>
+              </div>
+            </motion.section>
             <motion.section id="coming-soon-section" className="relative" />
           </motion.div>
         </div>
