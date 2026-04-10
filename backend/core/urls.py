@@ -18,10 +18,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from payments.views import PricingAPIView
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include("users.urls")),
     path("api/backend-auth/", include("users.urls")),
     path("api/", include("matches.urls")),
     path("api/payment/", include("payments.urls")),
+    path("api/pricing/", PricingAPIView.as_view(), name="pricing"),
 ]

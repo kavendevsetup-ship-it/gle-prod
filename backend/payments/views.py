@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid
+from decimal import Decimal
 from datetime import timedelta
 
 import razorpay
@@ -14,14 +15,11 @@ from matches.models import Match
 
 from .access import has_active_premium_access, has_active_subscription, has_premium_access
 from .models import MatchPurchase
+from .pricing import get_active_pricing
 
 
 PLAN_MATCH = "match"
 PLAN_SUBSCRIPTION = "subscription"
-MATCH_PRICE_INR = 39
-MATCH_PRICE_PAISE = 3900
-SUBSCRIPTION_PRICE_INR = 499
-SUBSCRIPTION_PRICE_PAISE = 49900
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +45,9 @@ class CreateOrderAPIView(APIView):
 		if plan_type is None:
 			return Response({"detail": "type must be 'match' or 'subscription'"}, status=400)
 
+		pricing = get_active_pricing()
 		match = None
-		amount_paise = SUBSCRIPTION_PRICE_PAISE
+		amount_paise = pricing.monthly_price
 		receipt = f"sub-{request.user.id}-{uuid.uuid4().hex[:10]}"
 
 		if plan_type == PLAN_MATCH:
@@ -57,7 +56,7 @@ class CreateOrderAPIView(APIView):
 				return Response({"detail": "match_id is required for type='match'"}, status=400)
 
 			match = get_object_or_404(Match, pk=match_id)
-			amount_paise = MATCH_PRICE_PAISE
+			amount_paise = pricing.match_price
 			receipt = f"match-{match.id}-{uuid.uuid4().hex[:10]}"
 
 		key_id = os.getenv("RAZORPAY_KEY_ID", "")
@@ -159,6 +158,10 @@ class VerifyPaymentAPIView(APIView):
 		).exists()
 
 		if not already_recorded:
+			pricing = get_active_pricing()
+			monthly_price_inr = Decimal(pricing.monthly_price) / Decimal("100")
+			match_price_inr = Decimal(pricing.match_price) / Decimal("100")
+
 			if plan_type == PLAN_SUBSCRIPTION:
 				subscription_start = timezone.now()
 				subscription_end = subscription_start + timedelta(days=30)
@@ -170,7 +173,7 @@ class VerifyPaymentAPIView(APIView):
 					subscription_start=subscription_start,
 					subscription_end=subscription_end,
 					payment_id=razorpay_payment_id,
-					amount=SUBSCRIPTION_PRICE_INR,
+					amount=monthly_price_inr,
 					status=MatchPurchase.PurchaseStatus.SUCCESS,
 				)
 			else:
@@ -189,7 +192,7 @@ class VerifyPaymentAPIView(APIView):
 						subscription_start=None,
 						subscription_end=None,
 						payment_id=razorpay_payment_id,
-						amount=MATCH_PRICE_INR,
+						amount=match_price_inr,
 						status=MatchPurchase.PurchaseStatus.SUCCESS,
 					)
 
@@ -228,5 +231,16 @@ class CheckAccessAPIView(APIView):
 				"has_access": has_access,
 				"is_subscription": is_subscription_active,
 				"access": has_access,
+			}
+		)
+
+
+class PricingAPIView(APIView):
+	def get(self, request):
+		pricing = get_active_pricing()
+		return Response(
+			{
+				"match_price": pricing.match_price // 100,
+				"monthly_price": pricing.monthly_price // 100,
 			}
 		)

@@ -68,6 +68,11 @@ export type VerifyPaymentResponse = {
   is_subscription?: boolean;
 };
 
+export type PricingApiResponse = {
+  match_price: number;
+  monthly_price: number;
+};
+
 export type BackendAuthBridgePayload = {
   email: string;
   name?: string;
@@ -263,4 +268,19 @@ export async function verifyPayment(
   }
 
   return (await response.json()) as VerifyPaymentResponse;
+}
+
+export async function getPricing(): Promise<PricingApiResponse> {
+  const response = await fetch(buildApiUrl("pricing/"), {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch pricing (${response.status})`);
+  }
+
+  return (await response.json()) as PricingApiResponse;
 }

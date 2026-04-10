@@ -5,8 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 
 import {
   createPaymentOrder,
+  getPricing,
   getMatchAccess,
   getMatchDetails,
+  type PricingApiResponse,
   verifyPayment,
   type FreeContentApiItem,
   type MatchApiItem,
@@ -48,6 +50,11 @@ type PdfDocumentItem = {
 
 type PremiumVideoItem = PremiumContentApiItem & {
   video: string;
+};
+
+const FALLBACK_PRICING: PricingApiResponse = {
+  match_price: 39,
+  monthly_price: 499,
 };
 
 let razorpayScriptPromise: Promise<boolean> | null = null;
@@ -1046,6 +1053,7 @@ export default function MatchDetailsPage() {
   const [activePremiumImageIndex, setActivePremiumImageIndex] = useState(0);
   const [isVideoContentModalOpen, setIsVideoContentModalOpen] = useState(false);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
+  const [pricing, setPricing] = useState<PricingApiResponse>(FALLBACK_PRICING);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -1324,9 +1332,10 @@ export default function MatchDetailsPage() {
         setLoading(true);
         setError(null);
 
-        const [details, accessResult] = await Promise.all([
+        const [details, accessResult, pricingResult] = await Promise.all([
           getMatchDetails(matchId),
           getMatchAccess(matchId),
+          getPricing().catch(() => FALLBACK_PRICING),
         ]);
 
         setMatch(details.match);
@@ -1334,6 +1343,16 @@ export default function MatchDetailsPage() {
         setPremiumContent(details.premium_content || []);
         setAccess(!!(accessResult.has_access ?? accessResult.access));
         setIsSubscriptionAccess(!!accessResult.is_subscription);
+        setPricing({
+          match_price:
+            Number.isFinite(pricingResult.match_price) && pricingResult.match_price > 0
+              ? pricingResult.match_price
+              : FALLBACK_PRICING.match_price,
+          monthly_price:
+            Number.isFinite(pricingResult.monthly_price) && pricingResult.monthly_price > 0
+              ? pricingResult.monthly_price
+              : FALLBACK_PRICING.monthly_price,
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load match data");
       } finally {
@@ -1436,13 +1455,13 @@ export default function MatchDetailsPage() {
                         onClick={handleUnlockPremium}
                         className="w-full bg-gradient-primary text-white py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
                       >
-                        Unlock Match ₹39
+                        Unlock Match ₹{pricing.match_price}
                       </button>
                       <button
                         onClick={handleUnlockSubscription}
                         className="w-full bg-white text-gray-900 border border-gray-200 py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
                       >
-                        Monthly ₹499
+                        Monthly ₹{pricing.monthly_price}
                       </button>
                     </div>
                   </div>

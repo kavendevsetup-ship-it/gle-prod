@@ -1,3 +1,9 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+import { getPricing, type PricingApiResponse } from "@/services/api";
+
 type Team = {
   key: string;
   name: string;
@@ -202,7 +208,44 @@ function MatchCard({ match }: { match: Match }) {
   );
 }
 
+const FALLBACK_PRICING: PricingApiResponse = {
+  match_price: 39,
+  monthly_price: 499,
+};
+
 export default function MatchesPage() {
+  const [pricing, setPricing] = useState<PricingApiResponse>(FALLBACK_PRICING);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadPricing = async () => {
+      try {
+        const response = await getPricing();
+        if (!active) return;
+
+        if (
+          Number.isFinite(response.match_price) &&
+          Number.isFinite(response.monthly_price)
+        ) {
+          setPricing({
+            match_price: response.match_price,
+            monthly_price: response.monthly_price,
+          });
+        }
+      } catch {
+        if (!active) return;
+        setPricing(FALLBACK_PRICING);
+      }
+    };
+
+    loadPricing();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-radial py-6 sm:py-8 md:py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-12">
@@ -254,10 +297,10 @@ export default function MatchesPage() {
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button className="w-full bg-gradient-primary text-white py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5">
-                    Match ₹39
+                    Match ₹{pricing.match_price}
                   </button>
                   <button className="w-full bg-white text-gray-900 border border-gray-200 py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5">
-                    Monthly ₹499
+                    Monthly ₹{pricing.monthly_price}
                   </button>
                 </div>
               </div>
