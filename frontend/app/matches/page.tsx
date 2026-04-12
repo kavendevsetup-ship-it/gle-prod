@@ -361,7 +361,7 @@ export default function MatchesPage() {
                         ) : null}
                         <span className="text-2xl font-extrabold text-orange-600">₹{pricing.weekly_price}</span>
                       </div>
-                      <p className="text-xs sm:text-sm text-gray-600 mb-3">Best for quick wins 🚀</p>
+                      <p className="text-xs sm:text-sm text-gray-600 mb-3"> </p>
                       <button className="w-full bg-gradient-primary text-white py-3 px-5 rounded-xl text-sm sm:text-base font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5">
                         Unlock for 7 Days
                       </button>
@@ -380,7 +380,7 @@ export default function MatchesPage() {
                         ) : null}
                         <span className="text-2xl font-extrabold text-gray-900">₹{pricing.monthly_price}</span>
                       </div>
-                      <p className="text-xs sm:text-sm text-gray-600 mb-3">Best value for consistent players</p>
+                      <p className="text-xs sm:text-sm text-gray-600 mb-3"> </p>
                       <button className="w-full bg-white text-gray-900 border border-gray-200 py-3 px-5 rounded-xl text-sm sm:text-base font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5">
                         Unlock for 30 Days
                       </button>

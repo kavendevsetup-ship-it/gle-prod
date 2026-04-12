@@ -59,6 +59,72 @@ class MatchPurchase(models.Model):
 		return f"{self.user} - {match_name} ({self.status})"
 
 
+class UserSubscription(models.Model):
+	class PlanType(models.TextChoices):
+		WEEKLY = "weekly", "Weekly"
+		MONTHLY = "subscription", "Monthly"
+
+	user = models.OneToOneField(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.CASCADE,
+		related_name="active_subscription",
+		verbose_name="User",
+	)
+	plan_type = models.CharField(
+		"Plan Type",
+		max_length=20,
+		choices=PlanType.choices,
+	)
+	start_date = models.DateTimeField("Start Date")
+	end_date = models.DateTimeField("End Date", db_index=True)
+	is_active = models.BooleanField("Is Active", default=True)
+	last_payment_id = models.CharField(
+		"Last Payment ID",
+		max_length=128,
+		blank=True,
+		default="",
+		db_index=True,
+	)
+	created_at = models.DateTimeField("Created At", auto_now_add=True)
+	updated_at = models.DateTimeField("Updated At", auto_now=True)
+
+	class Meta:
+		verbose_name = "User Subscription"
+		verbose_name_plural = "User Subscriptions"
+
+	def __str__(self) -> str:
+		return f"{self.user} - {self.plan_type} until {self.end_date}"
+
+
+class ProcessedPayment(models.Model):
+	payment_id = models.CharField("Payment ID", max_length=128, unique=True)
+	order_id = models.CharField("Order ID", max_length=128, db_index=True)
+	user = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.CASCADE,
+		related_name="processed_payments",
+		verbose_name="User",
+	)
+	plan_type = models.CharField("Plan Type", max_length=20)
+	match = models.ForeignKey(
+		Match,
+		on_delete=models.SET_NULL,
+		related_name="processed_payments",
+		null=True,
+		blank=True,
+		verbose_name="Match",
+	)
+	created_at = models.DateTimeField("Created At", auto_now_add=True)
+
+	class Meta:
+		verbose_name = "Processed Payment"
+		verbose_name_plural = "Processed Payments"
+		ordering = ("-created_at", "-id")
+
+	def __str__(self) -> str:
+		return f"{self.payment_id} ({self.plan_type})"
+
+
 class PricingConfig(models.Model):
 	match_price = models.IntegerField(
 		default=3900,

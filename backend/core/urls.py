@@ -18,7 +18,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
-from payments.views import PricingAPIView
+from payments.views import AccessStatusAPIView, PricingAPIView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -27,5 +27,6 @@ urlpatterns = [
     path("api/", include("users.updates_urls")),
     path("api/", include("matches.urls")),
     path("api/payment/", include("payments.urls")),
+    path("api/access/", AccessStatusAPIView.as_view(), name="access-status"),
     path("api/pricing/", PricingAPIView.as_view(), name="pricing"),
 ]

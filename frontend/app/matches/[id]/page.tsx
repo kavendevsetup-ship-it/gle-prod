@@ -5,8 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 
 import {
   createPaymentOrder,
+  getAccessStatus,
   getPricing,
-  getMatchAccess,
   getMatchDetails,
   type PaymentPlanType,
   type PricingApiResponse,
@@ -84,6 +84,12 @@ function loadRazorpayScript(): Promise<boolean> {
   });
 
   return razorpayScriptPromise;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function formatDateTime(dateStr: string) {
@@ -1074,6 +1080,8 @@ export default function MatchDetailsPage() {
     pricing.monthly_offer_active ?? FALLBACK_PRICING.monthly_offer_active ?? false;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [paymentStatusMessage, setPaymentStatusMessage] = useState<string | null>(null);
+  const [isPaymentInProgress, setIsPaymentInProgress] = useState(false);
 
   const freeTextContent = freeContent.filter((item) => {
     const contentType = resolveFreeContentType(item);
@@ -1236,16 +1244,35 @@ export default function MatchDetailsPage() {
     });
   };
 
-  const refreshAccess = async (targetMatchId: number | string) => {
-    const accessResult = await getMatchAccess(targetMatchId);
-    const hasAccess = !!(accessResult.has_access ?? accessResult.access);
-    setAccess(hasAccess);
-    setIsSubscriptionAccess(!!accessResult.is_subscription);
+  const refreshAccess = async (
+    targetMatchId?: number | string,
+    retryCount = 3
+  ): Promise<boolean> => {
+    for (let attempt = 0; attempt < retryCount; attempt += 1) {
+      const accessResult = await getAccessStatus(targetMatchId);
+      const hasAccess = !!(accessResult.has_access ?? accessResult.access);
+      setAccess(hasAccess);
+      setIsSubscriptionAccess(!!accessResult.is_subscription);
 
-    if (hasAccess) {
-      const details = await getMatchDetails(targetMatchId);
-      setPremiumContent(details.premium_content || []);
+      if (hasAccess && targetMatchId) {
+        const details = await getMatchDetails(targetMatchId);
+        setPremiumContent(details.premium_content || []);
+        setPaymentStatusMessage(null);
+        return true;
+      }
+
+      if (hasAccess) {
+        setPaymentStatusMessage(null);
+        return true;
+      }
+
+      if (attempt < retryCount - 1) {
+        setPaymentStatusMessage("Payment received. Activating access...");
+        await delay(800 * (attempt + 1));
+      }
     }
+
+    return false;
   };
 
   const initiatePayment = async (
@@ -1253,11 +1280,18 @@ export default function MatchDetailsPage() {
     matchIdToUnlock?: number,
     matchName?: string
   ) => {
+    if (isPaymentInProgress) {
+      return;
+    }
+
     try {
       setError(null);
+      setPaymentStatusMessage(null);
+      setIsPaymentInProgress(true);
 
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded || !window.Razorpay) {
+        setIsPaymentInProgress(false);
         alert("Unable to load payment gateway. Please try again.");
         return;
       }
@@ -1269,6 +1303,7 @@ export default function MatchDetailsPage() {
       );
       const razorpayKey = order.key || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
       if (!razorpayKey) {
+        setIsPaymentInProgress(false);
         alert("Unable to load payment gateway. Please try again.");
         return;
       }
@@ -1285,8 +1320,15 @@ export default function MatchDetailsPage() {
             : planType === "subscription"
               ? "Monthly KAIRO Access"
               : matchName,
+        modal: {
+          ondismiss: () => {
+            setIsPaymentInProgress(false);
+          },
+        },
         handler: async (response: RazorpayHandlerResponse) => {
           try {
+            setPaymentStatusMessage("Payment received. Activating access...");
+
             const verify = await verifyPayment({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
@@ -1298,27 +1340,54 @@ export default function MatchDetailsPage() {
             });
 
             if (verify.success) {
-              if (matchId) {
-                await refreshAccess(matchId);
-              }
+              const targetMatchId = matchIdToUnlock ?? matchId;
+              const accessSynced = await refreshAccess(targetMatchId);
               setIsSubscriptionAccess(!!verify.is_subscription);
+
+              if (!accessSynced) {
+                setError("Payment verified. Access is being activated. Please wait and refresh.");
+                setPaymentStatusMessage("Payment received. Activating access...");
+              } else if (typeof window !== "undefined") {
+                sessionStorage.removeItem("gle_pending_access_activation");
+              }
             } else {
               setError("Verification failed");
               alert("Verification failed");
             }
           } catch {
             setError("Verification failed");
+            setPaymentStatusMessage("Payment received. Activating access...");
             alert("Verification failed");
+          } finally {
+            setIsPaymentInProgress(false);
           }
         },
       };
 
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", () => {
+        setIsPaymentInProgress(false);
+        setPaymentStatusMessage(null);
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("gle_pending_access_activation");
+        }
         alert("Payment failed");
       });
+
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(
+          "gle_pending_access_activation",
+          JSON.stringify({
+            matchId: matchIdToUnlock ?? matchId ?? null,
+            startedAt: Date.now(),
+          })
+        );
+      }
+
       rzp.open();
     } catch (paymentError) {
+      setIsPaymentInProgress(false);
+
       const message =
         paymentError instanceof Error ? paymentError.message : "Unable to start payment.";
 
@@ -1357,10 +1426,11 @@ export default function MatchDetailsPage() {
       try {
         setLoading(true);
         setError(null);
+        setPaymentStatusMessage(null);
 
         const [details, accessResult, pricingResult] = await Promise.all([
           getMatchDetails(matchId),
-          getMatchAccess(matchId),
+          getAccessStatus(matchId),
           getPricing().catch(() => FALLBACK_PRICING),
         ]);
 
@@ -1423,6 +1493,42 @@ export default function MatchDetailsPage() {
     };
 
     loadData();
+  }, [matchId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const rawPending = sessionStorage.getItem("gle_pending_access_activation");
+    if (!rawPending) return;
+
+    let pendingMatchId: string | number | null = null;
+    try {
+      const parsed = JSON.parse(rawPending) as { matchId?: string | number | null; startedAt?: number };
+      pendingMatchId = parsed.matchId ?? null;
+    } catch {
+      sessionStorage.removeItem("gle_pending_access_activation");
+      return;
+    }
+
+    const targetMatchId = pendingMatchId ?? matchId;
+    if (!targetMatchId) {
+      sessionStorage.removeItem("gle_pending_access_activation");
+      return;
+    }
+
+    const syncPendingAccess = async () => {
+      try {
+        setPaymentStatusMessage("Payment received. Activating access...");
+        const synced = await refreshAccess(targetMatchId, 3);
+        if (synced) {
+          sessionStorage.removeItem("gle_pending_access_activation");
+        }
+      } catch {
+        // Keep pending marker so next refresh can retry access sync.
+      }
+    };
+
+    void syncPendingAccess();
   }, [matchId]);
 
   const dateTime = match ? formatDateTime(match.match_date) : null;
@@ -1528,6 +1634,7 @@ export default function MatchDetailsPage() {
                           <p className="text-xs sm:text-sm text-gray-600 mb-3">Best for quick wins 🚀</p>
                           <button
                             onClick={handleUnlockWeekly}
+                            disabled={isPaymentInProgress}
                             className="w-full bg-gradient-primary text-white py-3 px-5 rounded-xl text-sm sm:text-base font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
                           >
                             Unlock for 7 Days
@@ -1550,6 +1657,7 @@ export default function MatchDetailsPage() {
                           <p className="text-xs sm:text-sm text-gray-600 mb-3">Best value for consistent players</p>
                           <button
                             onClick={handleUnlockSubscription}
+                            disabled={isPaymentInProgress}
                             className="w-full bg-white text-gray-900 border border-gray-200 py-3 px-5 rounded-xl text-sm sm:text-base font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
                           >
                             Unlock for 30 Days
@@ -1560,6 +1668,7 @@ export default function MatchDetailsPage() {
                       {ENABLE_MATCH_PLAN ? (
                         <button
                           onClick={handleUnlockPremium}
+                          disabled={isPaymentInProgress}
                           className="w-full bg-white text-gray-900 border border-gray-200 py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5 sm:col-span-2"
                         >
                           Unlock Match ₹{pricing.match_price}
@@ -1571,6 +1680,12 @@ export default function MatchDetailsPage() {
                           No subscription plans are currently available.
                         </div>
                       ) : null}
+
+					  {paymentStatusMessage ? (
+						<div className="sm:col-span-2 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-700">
+						  {paymentStatusMessage}
+						</div>
+					  ) : null}
                     </div>
                   </div>
 

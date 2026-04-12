@@ -66,6 +66,17 @@ export type VerifyPaymentResponse = {
   access?: boolean;
   has_access?: boolean;
   is_subscription?: boolean;
+  subscription_end?: string | null;
+  activation_pending?: boolean;
+  idempotent?: boolean;
+  message?: string;
+};
+
+export type AccessStatusApiResponse = {
+  access: boolean;
+  has_access: boolean;
+  is_subscription: boolean;
+  subscription_end?: string | null;
 };
 
 export type PricingApiResponse = {
@@ -211,6 +222,57 @@ export async function getMatchAccess(
     access: hasAccess,
     has_access: hasAccess,
     is_subscription: Boolean(data.is_subscription),
+  };
+}
+
+export async function getAccessStatus(
+  matchId?: number | string
+): Promise<AccessStatusApiResponse> {
+  const token = getStoredAuthToken();
+  if (!token) {
+    return { access: false, has_access: false, is_subscription: false, subscription_end: null };
+  }
+
+  const query = matchId ? `?match_id=${matchId}` : "";
+
+  let response = await fetch(buildApiUrl(`access/${query}`), {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.status === 404) {
+    if (!matchId) {
+      return { access: false, has_access: false, is_subscription: false, subscription_end: null };
+    }
+
+    response = await fetch(buildApiUrl(`payment/check-access/?match_id=${matchId}`), {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    return { access: false, has_access: false, is_subscription: false, subscription_end: null };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch access status (${response.status})`);
+  }
+
+  const data = (await response.json()) as Partial<AccessStatusApiResponse>;
+  const hasAccess = Boolean(data.has_access ?? data.access);
+
+  return {
+    access: hasAccess,
+    has_access: hasAccess,
+    is_subscription: Boolean(data.is_subscription),
+    subscription_end: data.subscription_end ?? null,
   };
 }
 

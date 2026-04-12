@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import MatchPurchase, PricingConfig
+from .models import MatchPurchase, PricingConfig, ProcessedPayment, UserSubscription
 
 
 @admin.register(MatchPurchase)
@@ -91,3 +91,29 @@ class PricingConfigAdmin(admin.ModelAdmin):
 			},
 		),
 	)
+
+
+@admin.register(UserSubscription)
+class UserSubscriptionAdmin(admin.ModelAdmin):
+	list_display = (
+		"user",
+		"plan_type",
+		"start_date",
+		"end_date",
+		"is_active",
+		"last_payment_id",
+		"updated_at",
+	)
+	list_filter = ("plan_type", "is_active", "updated_at")
+	search_fields = ("user__email", "last_payment_id")
+	autocomplete_fields = ("user",)
+	readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(ProcessedPayment)
+class ProcessedPaymentAdmin(admin.ModelAdmin):
+	list_display = ("payment_id", "order_id", "user", "plan_type", "match", "created_at")
+	list_filter = ("plan_type", "created_at")
+	search_fields = ("payment_id", "order_id", "user__email")
+	autocomplete_fields = ("user", "match")
+	readonly_fields = ("created_at",)
