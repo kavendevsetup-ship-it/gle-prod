@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { BarChart3, Bell, Home, Mail } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
@@ -42,11 +43,18 @@ type MatchItem = {
 
 type TabId = "featured" | "live" | "upcoming";
 
-const navigationItems = [
-  { id: "dashboard", label: "Dashboard", icon: "🏠", sectionId: "welcome-section" },
-  { id: "expert-analysis", label: "Expert Analysis", icon: "📊", sectionId: "expert-analysis-section" },
-  { id: "updates", label: "Updates", icon: "📰", sectionId: "updates-section" },
-] as const;
+type NavigationItem = {
+  id: string;
+  label: string;
+  icon: typeof Home;
+  sectionId: string;
+};
+
+const navigationItems: NavigationItem[] = [
+  { id: "dashboard", label: "Dashboard", icon: Home, sectionId: "welcome-section" },
+  { id: "expert-analysis", label: "Expert Analysis", icon: BarChart3, sectionId: "expert-analysis-section" },
+  { id: "updates", label: "Updates", icon: Bell, sectionId: "updates-section" },
+];
 
 const tabs = [
   {
@@ -258,7 +266,7 @@ function EnhancedWelcomeHeader({ userName, isPremium }: { userName: string; isPr
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4, duration: 0.6 }}
               >
-                Welcome to KAIRO Intelligence System
+                Your analysis workspace is ready.
               </motion.p>
             </motion.div>
           </div>
@@ -300,7 +308,7 @@ function EnhancedWelcomeHeader({ userName, isPremium }: { userName: string; isPr
             animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
             transition={{ duration: 2, repeat: Infinity }}
           />
-          <span>Explore live insights and expert analysis below</span>
+          <span>Review live analysis and teams below.</span>
         </motion.div>
       </div>
     </motion.div>
@@ -451,7 +459,9 @@ function ModernNavbar({
                 )}
                 <span className="relative z-10">
                   <span className="hidden lg:inline">{item.label}</span>
-                  <span className="lg:hidden text-lg">{item.icon}</span>
+                  <span className="lg:hidden inline-flex items-center justify-center">
+                    <item.icon className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+                  </span>
                   {item.id === "updates" && unreadUpdatesCount > 0 ? (
                     <span className="ml-2 inline-flex h-2.5 w-2.5 rounded-full bg-red-500" aria-hidden="true" />
                   ) : null}
@@ -744,7 +754,7 @@ export default function DashboardPage() {
                       </div>
                       <div>
                         <h2 className="text-2xl lg:text-3xl font-bold text-gray-900">For You</h2>
-                        <p className="text-gray-600">Personalized cricket data and match insights</p>
+                        <p className="text-gray-600">Personalized match analysis and teams.</p>
                       </div>
                     </div>
                   </div>
@@ -764,8 +774,8 @@ export default function DashboardPage() {
                             </svg>
                           </div>
                           <div>
-                            <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">Cricket Central</h2>
-                            <p className="text-sm text-gray-600">Real-time cricket updates</p>
+                            <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">Analysis Center</h2>
+                            <p className="text-sm text-gray-600">Real-time match analysis</p>
                           </div>
                         </div>
 
@@ -778,7 +788,7 @@ export default function DashboardPage() {
                           ) : error ? (
                             <div className="flex items-center space-x-2">
                               <div className="h-2 w-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                              <span className="text-xs text-yellow-600">Using cached data</span>
+                              <span className="text-xs text-yellow-600">Using latest cached data</span>
                             </div>
                           ) : (
                             <div className="flex items-center space-x-2">
@@ -839,8 +849,8 @@ export default function DashboardPage() {
 
                       {displayData.length === 0 && !loading && (
                         <div className="text-center py-12">
-                          <p className="text-gray-600 text-lg">No {activeTab} matches available</p>
-                          <p className="text-gray-500 text-sm mt-2">Check back later for updates</p>
+                          <p className="text-gray-600 text-lg">No data available</p>
+                          <p className="text-gray-500 text-sm mt-2">Please check back soon.</p>
                         </div>
                       )}
                     </div>
@@ -871,20 +881,20 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between gap-3 mb-5">
                     <div>
                       <h2 className="text-2xl lg:text-3xl font-bold text-gray-900">Updates</h2>
-                      <p className="text-gray-600">Latest announcements and product changes</p>
+                      <p className="text-gray-600">Product updates and announcements</p>
                     </div>
                     {unreadUpdatesCount > 0 ? (
                       <span className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs sm:text-sm font-semibold text-red-700">
                         <span className="h-2 w-2 rounded-full bg-red-500" aria-hidden="true" />
-                        {unreadUpdatesCount} new
+                        {unreadUpdatesCount} unread
                       </span>
                     ) : null}
                   </div>
 
                   {updatesLoading ? (
-                    <div className="rounded-2xl border border-gray-200 bg-white/70 p-4 text-sm text-gray-600">Loading updates...</div>
+                    <div className="rounded-2xl border border-gray-200 bg-white/70 p-4 text-sm text-gray-600">Loading updates.</div>
                   ) : updates.length === 0 ? (
-                    <div className="rounded-2xl border border-gray-200 bg-white/70 p-4 text-sm text-gray-600">No updates right now.</div>
+                    <div className="rounded-2xl border border-gray-200 bg-white/70 p-4 text-sm text-gray-600">No data available</div>
                   ) : (
                     <div className="space-y-3 sm:space-y-4">
                       {updates.map((item) => (
@@ -935,8 +945,8 @@ export default function DashboardPage() {
                       </svg>
                     </div>
                     <div>
-                      <h2 className="text-2xl lg:text-3xl font-bold text-gray-900">Help &amp; Support</h2>
-                      <p className="text-gray-600">Need help? Contact us at:</p>
+                      <h2 className="text-2xl lg:text-3xl font-bold text-gray-900">Support</h2>
+                      <p className="text-gray-600">Contact us</p>
                     </div>
                   </div>
 
@@ -944,7 +954,7 @@ export default function DashboardPage() {
                     href="mailto:grandleagueexpert2024@gmail.com"
                     className="inline-flex items-center gap-2 text-base sm:text-lg font-semibold text-blue-700 underline underline-offset-4 hover:text-blue-800 transition-colors"
                   >
-                    <span aria-hidden="true">📧</span>
+                    <Mail className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
                     <span>grandleagueexpert2024@gmail.com</span>
                   </a>
 
