@@ -1,6 +1,9 @@
 from django.conf import settings
 from django.db import models
 from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
+from datetime import timedelta
 
 from matches.models import Match
 
@@ -94,6 +97,68 @@ class UserSubscription(models.Model):
 
 	def __str__(self) -> str:
 		return f"{self.user} - {self.plan_type} until {self.end_date}"
+
+
+class AdminAccessOverride(models.Model):
+	class PlanType(models.TextChoices):
+		WEEKLY = "weekly", "Weekly"
+		MONTHLY = "monthly", "Monthly"
+
+	user = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.CASCADE,
+		related_name="admin_access_overrides",
+		verbose_name="User",
+	)
+	is_active = models.BooleanField(default=False)
+	plan_type = models.CharField(
+		max_length=20,
+		choices=PlanType.choices,
+		null=True,
+		blank=True,
+	)
+	start_date = models.DateTimeField(null=True, blank=True)
+	end_date = models.DateTimeField(null=True, blank=True, db_index=True)
+	notes = models.TextField(null=True, blank=True)
+	created_at = models.DateTimeField(auto_now_add=True)
+	updated_at = models.DateTimeField(auto_now=True)
+
+	class Meta:
+		verbose_name = "Admin Access Override"
+		verbose_name_plural = "Admin Access Overrides"
+		ordering = ("-updated_at", "-id")
+		constraints = [
+			models.UniqueConstraint(
+				fields=("user",),
+				condition=Q(is_active=True),
+				name="unique_active_admin_access_override_per_user",
+			),
+		]
+
+	def save(self, *args, **kwargs):
+		now = timezone.now()
+
+		if self.is_active:
+			if self.start_date is None:
+				self.start_date = now
+
+			# Apply duration defaults when no end is provided; explicit end dates are preserved
+			# so admin actions can extend existing access without being overwritten.
+			if self.end_date is None:
+				if self.plan_type == self.PlanType.WEEKLY:
+					self.end_date = now + timedelta(days=7)
+				elif self.plan_type == self.PlanType.MONTHLY:
+					self.end_date = now + timedelta(days=30)
+
+		with transaction.atomic():
+			super().save(*args, **kwargs)
+			if self.is_active:
+				type(self).objects.filter(user=self.user, is_active=True).exclude(pk=self.pk).update(is_active=False)
+			else:
+				type(self).objects.filter(user=self.user, is_active=True).exclude(pk=self.pk).update(is_active=False)
+
+	def __str__(self) -> str:
+		return f"{self.user} - {self.plan_type or 'no-plan'} ({'active' if self.is_active else 'inactive'})"
 
 
 class ProcessedPayment(models.Model):

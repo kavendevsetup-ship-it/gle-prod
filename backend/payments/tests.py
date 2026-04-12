@@ -1,14 +1,17 @@
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.contrib.admin.sites import AdminSite
 from django.test import TestCase
+from django.test.client import RequestFactory
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from matches.models import Match
 from users.models import User
 
-from .models import MatchPurchase, ProcessedPayment, UserSubscription
+from .admin import AdminAccessOverrideAdmin
+from .models import AdminAccessOverride, MatchPurchase, ProcessedPayment, UserSubscription
 
 
 class _FakeRazorpayClient:
@@ -173,3 +176,135 @@ class PaymentVerificationFlowTests(TestCase):
 		self.assertEqual(response.status_code, 500)
 		self.assertTrue(response.data.get("activation_pending"))
 		self.assertFalse(ProcessedPayment.objects.filter(payment_id="pay_atomic_1").exists())
+
+
+class AdminAccessOverrideFlowTests(TestCase):
+	def setUp(self):
+		super().setUp()
+		self.client = APIClient()
+		self.user = User.objects.create_user(
+			email="override@example.com",
+			username="overrideuser",
+			password="StrongPassword123",
+		)
+		self.client.force_authenticate(user=self.user)
+		self.match = Match.objects.create(
+			team_1="India",
+			team_2="England",
+			match_name="India vs England",
+			match_date=timezone.now() + timedelta(days=2),
+		)
+
+		self.admin_site = AdminSite()
+		self.override_admin = AdminAccessOverrideAdmin(AdminAccessOverride, self.admin_site)
+		self.override_admin.message_user = lambda *args, **kwargs: None
+		self.admin_request = RequestFactory().post("/admin/payments/adminaccessoverride/")
+		self.admin_request.user = self.user
+
+	def _access_response(self):
+		return self.client.get(f"/api/access/?match_id={self.match.id}")
+
+	def test_user_without_payment_admin_grants_weekly_access(self):
+		override = AdminAccessOverride.objects.create(
+			user=self.user,
+			is_active=False,
+			notes="Manual unlock",
+		)
+
+		queryset = AdminAccessOverride.objects.filter(pk=override.pk)
+		self.override_admin.grant_weekly_access(self.admin_request, queryset)
+
+		override.refresh_from_db()
+		self.assertTrue(override.is_active)
+		self.assertEqual(override.plan_type, AdminAccessOverride.PlanType.WEEKLY)
+		self.assertIsNotNone(override.end_date)
+		self.assertGreater(override.end_date, timezone.now())
+
+		response = self._access_response()
+		self.assertEqual(response.status_code, 200)
+		self.assertTrue(response.data.get("has_access"))
+
+	def test_paid_user_admin_revoke_removes_access(self):
+		UserSubscription.objects.create(
+			user=self.user,
+			plan_type=UserSubscription.PlanType.MONTHLY,
+			start_date=timezone.now() - timedelta(days=2),
+			end_date=timezone.now() + timedelta(days=20),
+			is_active=True,
+			last_payment_id="pay_sub_1",
+		)
+
+		override = AdminAccessOverride.objects.create(
+			user=self.user,
+			is_active=True,
+			plan_type=AdminAccessOverride.PlanType.WEEKLY,
+			notes="Temporary trial",
+		)
+
+		queryset = AdminAccessOverride.objects.filter(pk=override.pk)
+		self.override_admin.revoke_access(self.admin_request, queryset)
+
+		response = self._access_response()
+		self.assertEqual(response.status_code, 200)
+		self.assertFalse(response.data.get("has_access"))
+
+	def test_paid_user_admin_extend_access_duration(self):
+		UserSubscription.objects.create(
+			user=self.user,
+			plan_type=UserSubscription.PlanType.WEEKLY,
+			start_date=timezone.now() - timedelta(days=1),
+			end_date=timezone.now() + timedelta(days=6),
+			is_active=True,
+			last_payment_id="pay_sub_2",
+		)
+
+		override = AdminAccessOverride.objects.create(
+			user=self.user,
+			is_active=True,
+			plan_type=AdminAccessOverride.PlanType.WEEKLY,
+			start_date=timezone.now() - timedelta(days=1),
+			end_date=timezone.now() + timedelta(days=3),
+			notes="Need extension",
+		)
+
+		previous_end = override.end_date
+		queryset = AdminAccessOverride.objects.filter(pk=override.pk)
+		self.override_admin.grant_monthly_access(self.admin_request, queryset)
+
+		override.refresh_from_db()
+		self.assertTrue(override.is_active)
+		self.assertEqual(override.plan_type, AdminAccessOverride.PlanType.MONTHLY)
+		self.assertIsNotNone(previous_end)
+		self.assertGreater(override.end_date, previous_end)
+
+		response = self._access_response()
+		self.assertEqual(response.status_code, 200)
+		self.assertTrue(response.data.get("has_access"))
+
+	def test_override_expiry_falls_back_to_subscription(self):
+		UserSubscription.objects.create(
+			user=self.user,
+			plan_type=UserSubscription.PlanType.MONTHLY,
+			start_date=timezone.now() - timedelta(days=5),
+			end_date=timezone.now() + timedelta(days=10),
+			is_active=True,
+			last_payment_id="pay_sub_3",
+		)
+
+		AdminAccessOverride.objects.create(
+			user=self.user,
+			is_active=True,
+			plan_type=AdminAccessOverride.PlanType.WEEKLY,
+			start_date=timezone.now() - timedelta(days=10),
+			end_date=timezone.now() - timedelta(minutes=1),
+			notes="Expired override",
+		)
+
+		response = self._access_response()
+		self.assertEqual(response.status_code, 200)
+		self.assertTrue(response.data.get("has_access"))
+
+	def test_no_override_and_no_subscription_means_access_locked(self):
+		response = self._access_response()
+		self.assertEqual(response.status_code, 200)
+		self.assertFalse(response.data.get("has_access"))

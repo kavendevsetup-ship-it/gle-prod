@@ -1,6 +1,8 @@
 from django.contrib import admin
+from datetime import timedelta
+from django.utils import timezone
 
-from .models import MatchPurchase, PricingConfig, ProcessedPayment, UserSubscription
+from .models import AdminAccessOverride, MatchPurchase, PricingConfig, ProcessedPayment, UserSubscription
 
 
 @admin.register(MatchPurchase)
@@ -117,3 +119,118 @@ class ProcessedPaymentAdmin(admin.ModelAdmin):
 	search_fields = ("payment_id", "order_id", "user__email")
 	autocomplete_fields = ("user", "match")
 	readonly_fields = ("created_at",)
+
+
+@admin.register(AdminAccessOverride)
+class AdminAccessOverrideAdmin(admin.ModelAdmin):
+	list_display = (
+		"user",
+		"is_active",
+		"plan_type",
+		"current_status",
+		"start_date",
+		"end_date",
+		"updated_at",
+	)
+	list_filter = ("is_active", "plan_type", "updated_at")
+	search_fields = ("user__email", "user__username", "notes")
+	autocomplete_fields = ("user",)
+	readonly_fields = ("created_at", "updated_at", "current_status")
+	actions = ("grant_weekly_access", "grant_monthly_access", "revoke_access")
+	ordering = ("-updated_at", "-id")
+
+	fieldsets = (
+		(
+			"Override",
+			{
+				"fields": (
+					"user",
+					"is_active",
+					"plan_type",
+					"start_date",
+					"end_date",
+					"notes",
+					"current_status",
+					"created_at",
+					"updated_at",
+				),
+			},
+		),
+	)
+
+	@admin.display(description="Current Status")
+	def current_status(self, obj: AdminAccessOverride) -> str:
+		now = timezone.now()
+		if not obj.is_active:
+			return "Revoked"
+		if obj.end_date and obj.end_date > now:
+			return "Active"
+		return "Expired"
+
+	def _grant_plan(self, queryset, *, plan_type: str, duration_days: int):
+		now = timezone.now()
+		updated_count = 0
+
+		for user_id in queryset.values_list("user_id", flat=True).distinct():
+			override = (
+				AdminAccessOverride.objects.filter(user_id=user_id)
+				.order_by("-updated_at", "-id")
+				.first()
+			)
+			if override is None:
+				continue
+
+			extension_base = now
+			if override.is_active and override.end_date and override.end_date > now:
+				extension_base = override.end_date
+
+			override.is_active = True
+			override.plan_type = plan_type
+			if override.start_date is None:
+				override.start_date = now
+			override.end_date = extension_base + timedelta(days=duration_days)
+			override.save()
+			updated_count += 1
+
+		return updated_count
+
+	@admin.action(description="Grant Weekly Access")
+	def grant_weekly_access(self, request, queryset):
+		updated_count = self._grant_plan(
+			queryset,
+			plan_type=AdminAccessOverride.PlanType.WEEKLY,
+			duration_days=7,
+		)
+		self.message_user(request, f"Granted weekly access to {updated_count} user(s).")
+
+	@admin.action(description="Grant Monthly Access")
+	def grant_monthly_access(self, request, queryset):
+		updated_count = self._grant_plan(
+			queryset,
+			plan_type=AdminAccessOverride.PlanType.MONTHLY,
+			duration_days=30,
+		)
+		self.message_user(request, f"Granted monthly access to {updated_count} user(s).")
+
+	@admin.action(description="Revoke Access")
+	def revoke_access(self, request, queryset):
+		now = timezone.now()
+		updated_count = 0
+
+		for user_id in queryset.values_list("user_id", flat=True).distinct():
+			override = (
+				AdminAccessOverride.objects.filter(user_id=user_id)
+				.order_by("-updated_at", "-id")
+				.first()
+			)
+			if override is None:
+				continue
+
+			override.is_active = False
+			if override.start_date is None:
+				override.start_date = now
+			override.end_date = now
+			override.save()
+			updated_count += 1
+
+		self.message_user(request, f"Revoked override access for {updated_count} user(s).")
