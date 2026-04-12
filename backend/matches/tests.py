@@ -129,7 +129,8 @@ class AnalyticsDashboardTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 
 		self.assertEqual(response.context["total_revenue"], Decimal("628"))
-		self.assertEqual(response.context["active_subscriptions"], 2)
+		self.assertEqual(response.context["active_subscriptions"], 3)
+		self.assertEqual(response.context["valid_subscriptions"], 3)
 		self.assertGreaterEqual(response.context["total_users"], 5)
 
 		rows = response.context["premium_users_overview"]

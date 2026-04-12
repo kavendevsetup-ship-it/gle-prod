@@ -291,6 +291,12 @@
   border: 1px solid #fecdd3;
 }
 
+.status-noaccess {
+  background: #f4f5f7;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+}
+
 .cell-muted {
   margin-top: 2px;
   color: #64748b;

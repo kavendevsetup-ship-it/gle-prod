@@ -53,9 +53,9 @@
       <span>Registered accounts</span>
     </article>
     <article class="metric-card">
-      <h3>Active Subscriptions</h3>
+      <h3>Active Access Users</h3>
       <p class="metric-value">{{ active_subscriptions }}</p>
-      <span>Subscription end date in future</span>
+      <span>Computed from synchronized access logic</span>
     </article>
     <article class="metric-card">
       <h3>Total Match Purchases</h3>
@@ -95,6 +95,7 @@
           <p class="stat-value">{{ non_premium_users }}</p>
         </div>
       </div>
+      <p class="conversion-line">Valid Subscriptions: <strong>{{ valid_subscriptions }}</strong></p>
       <p class="conversion-line">Conversion Rate: <strong>{{ conversion_rate|floatformat:2 }}%</strong></p>
     </article>
   </section>
@@ -280,7 +281,7 @@
             </td>
             <td>{{ row.plan_type }}</td>
             <td>
-              <span class="status-badge{% if row.is_active %} status-active{% else %} status-expired{% endif %}">
+              <span class="status-badge {{ row.status_class }}">
                 {{ row.status }}
               </span>
             </td>

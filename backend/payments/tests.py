@@ -11,6 +11,7 @@ from matches.models import Match
 from users.models import User
 
 from .admin import AdminAccessOverrideAdmin
+from .access import get_user_access_state, has_payment_without_subscription_inconsistency
 from .models import AdminAccessOverride, MatchPurchase, ProcessedPayment, UserSubscription
 
 
@@ -308,3 +309,67 @@ class AdminAccessOverrideFlowTests(TestCase):
 		response = self._access_response()
 		self.assertEqual(response.status_code, 200)
 		self.assertFalse(response.data.get("has_access"))
+
+
+class AccessStateSyncServiceTests(TestCase):
+	def setUp(self):
+		super().setUp()
+		self.user = User.objects.create_user(
+			email="state-sync@example.com",
+			username="statesync",
+			password="StrongPassword123",
+		)
+
+	def test_get_user_access_state_prefers_active_override(self):
+		now = timezone.now()
+		UserSubscription.objects.create(
+			user=self.user,
+			plan_type=UserSubscription.PlanType.MONTHLY,
+			start_date=now - timedelta(days=1),
+			end_date=now + timedelta(days=10),
+			is_active=True,
+			last_payment_id="sub_state_1",
+		)
+		AdminAccessOverride.objects.create(
+			user=self.user,
+			is_active=True,
+			plan_type=AdminAccessOverride.PlanType.WEEKLY,
+			start_date=now,
+			end_date=now + timedelta(days=3),
+		)
+
+		state = get_user_access_state(self.user)
+		self.assertTrue(state["has_access"])
+		self.assertEqual(state["source"], "override")
+		self.assertEqual(state["plan_type"], "weekly")
+
+	def test_expired_active_override_is_auto_corrected(self):
+		now = timezone.now()
+		override = AdminAccessOverride.objects.create(
+			user=self.user,
+			is_active=True,
+			plan_type=AdminAccessOverride.PlanType.WEEKLY,
+			start_date=now - timedelta(days=3),
+			end_date=now - timedelta(minutes=1),
+		)
+
+		state = get_user_access_state(self.user)
+		override.refresh_from_db()
+
+		self.assertFalse(state["has_access"])
+		self.assertEqual(state["source"], "override")
+		self.assertFalse(override.is_active)
+
+	def test_inconsistency_flag_detects_subscription_payment_without_subscription_record(self):
+		MatchPurchase.objects.create(
+			user=self.user,
+			match=None,
+			is_subscription=True,
+			subscription_start=timezone.now() - timedelta(days=1),
+			subscription_end=timezone.now() + timedelta(days=6),
+			payment_id="inconsistency_pay_1",
+			amount="129.00",
+			status=MatchPurchase.PurchaseStatus.SUCCESS,
+		)
+
+		self.assertTrue(has_payment_without_subscription_inconsistency(self.user))

@@ -19,6 +19,7 @@ from django.utils import timezone
 from django.urls import path, reverse
 from zoneinfo import ZoneInfo
 
+from payments.access import get_user_access_state, with_prefetched_user_access
 from payments.models import AdminAccessOverride, MatchPurchase, UserSubscription
 
 from .models import FreeContent, Match, PremiumContent
@@ -558,95 +559,54 @@ def _build_premium_user_rows(*, now, premium_status, premium_plan, premium_searc
 	User = get_user_model()
 	search_filter = Q()
 	if premium_search:
-		search_filter = Q(user__email__icontains=premium_search) | Q(user__username__icontains=premium_search)
+		search_filter = Q(email__icontains=premium_search) | Q(username__icontains=premium_search)
 
-	latest_overrides_qs = (
-		AdminAccessOverride.objects.select_related("user")
-		.filter(search_filter)
-		.order_by("user_id", "-updated_at", "-id")
-		.distinct("user_id")
+	users_qs = (
+		User.objects.filter(search_filter)
+		.filter(
+			Q(admin_access_overrides__isnull=False)
+			| Q(active_subscription__isnull=False)
+			| Q(match_purchases__is_subscription=True, match_purchases__status=MatchPurchase.PurchaseStatus.SUCCESS)
+			| Q(is_premium=True)
+		)
+		.only("id", "email", "username", "is_premium", "premium_expiry")
+		.distinct()
 	)
-
-	user_search_filter = Q()
-	if premium_search:
-		user_search_filter = Q(user__email__icontains=premium_search) | Q(user__username__icontains=premium_search)
-
-	subscriptions_qs = UserSubscription.objects.select_related("user").filter(user_search_filter)
-
-	override_map = {override.user_id: override for override in latest_overrides_qs}
-	subscription_map = {subscription.user_id: subscription for subscription in subscriptions_qs}
-	user_ids = set(override_map.keys()) | set(subscription_map.keys())
-
-	users = {
-		user.id: user
-		for user in User.objects.filter(id__in=user_ids)
-		.only("id", "email", "username")
-	}
+	users_qs = with_prefetched_user_access(users_qs)
 
 	rows = []
-	for user_id in user_ids:
-		user = users.get(user_id)
-		if user is None:
-			continue
+	for user in users_qs:
+		state = get_user_access_state(user)
 
-		override = override_map.get(user_id)
-		subscription = subscription_map.get(user_id)
+		if state["source"] == "override":
+			plan_type = "Override"
+		elif state["plan_type"] == "weekly":
+			plan_type = "Weekly"
+		elif state["plan_type"] == "monthly":
+			plan_type = "Monthly"
+		else:
+			plan_type = "-"
 
-		effective_plan = "-"
-		effective_expiry = None
-		effective_active = False
-
-		if override is not None:
-			if not override.is_active:
-				effective_plan = "Override"
-				effective_expiry = override.end_date
-				effective_active = False
-			elif override.end_date and override.end_date > now:
-				effective_plan = "Override"
-				effective_expiry = override.end_date
-				effective_active = True
-			else:
-				if (
-					subscription is not None
-					and subscription.is_active
-					and subscription.end_date
-					and subscription.end_date > now
-				):
-					effective_plan = (
-						"Weekly"
-						if subscription.plan_type == UserSubscription.PlanType.WEEKLY
-						else "Monthly"
-					)
-					effective_expiry = subscription.end_date
-					effective_active = True
-				else:
-					effective_plan = "Override"
-					effective_expiry = override.end_date
-					effective_active = False
-		elif subscription is not None:
-			effective_plan = (
-				"Weekly"
-				if subscription.plan_type == UserSubscription.PlanType.WEEKLY
-				else "Monthly"
-			)
-			effective_expiry = subscription.end_date
-			effective_active = bool(
-				subscription.is_active and subscription.end_date and subscription.end_date > now
-			)
-
-		days_left = 0
-		if effective_active and effective_expiry:
-			days_left = max((effective_expiry - now).days, 0)
+		if state["has_access"]:
+			status = "Active"
+			status_class = "status-active"
+		elif state["source"] in {"override", "subscription"}:
+			status = "Expired"
+			status_class = "status-expired"
+		else:
+			status = "No Access"
+			status_class = "status-noaccess"
 
 		row = {
 			"user": user,
 			"email": user.email,
 			"username": user.username,
-			"plan_type": effective_plan,
-			"status": "Active" if effective_active else "Expired",
-			"days_left": days_left,
-			"expiry": effective_expiry,
-			"is_active": effective_active,
+			"plan_type": plan_type,
+			"status": status,
+			"status_class": status_class,
+			"days_left": state["days_left"],
+			"expiry": state["expiry"],
+			"is_active": state["has_access"],
 			"view_user_url": reverse("admin:users_user_change", args=[user.id]),
 			"override_url": f"{reverse('admin:payments_adminaccessoverride_changelist')}?user__id__exact={user.id}",
 		}
@@ -700,12 +660,23 @@ def _admin_dashboard_view(request):
 
 	total_revenue = successful_purchases.aggregate(total=Sum("amount"))["total"] or Decimal("0")
 	total_users = User.objects.count()
-	active_subscriptions = (
-		successful_purchases.filter(is_subscription=True, subscription_end__gt=now)
-		.values("user_id")
+	valid_subscriptions = UserSubscription.objects.filter(
+		is_active=True,
+		end_date__gt=now,
+	).count()
+
+	access_users_qs = (
+		User.objects.filter(
+			Q(admin_access_overrides__isnull=False)
+			| Q(active_subscription__isnull=False)
+			| Q(match_purchases__is_subscription=True, match_purchases__status=MatchPurchase.PurchaseStatus.SUCCESS)
+			| Q(is_premium=True)
+		)
+		.only("id", "is_premium", "premium_expiry")
 		.distinct()
-		.count()
 	)
+	access_users_qs = with_prefetched_user_access(access_users_qs)
+	active_subscriptions = sum(1 for user in access_users_qs if get_user_access_state(user)["has_access"])
 	total_match_purchases = successful_purchases.filter(is_subscription=False).count()
 
 	revenue_match = successful_purchases.filter(is_subscription=False).aggregate(total=Sum("amount"))["total"] or Decimal("0")
@@ -829,6 +800,7 @@ def _admin_dashboard_view(request):
 		"total_revenue": total_revenue,
 		"total_users": total_users,
 		"active_subscriptions": active_subscriptions,
+		"valid_subscriptions": valid_subscriptions,
 		"total_match_purchases": total_match_purchases,
 		"revenue_match": revenue_match,
 		"revenue_subscription": revenue_subscription,
