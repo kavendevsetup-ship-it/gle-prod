@@ -1,12 +1,18 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { fetchMatches, type MatchApiItem } from "@/services/api";
+import {
+  fetchMatches,
+  getUpdates,
+  markUpdateRead,
+  type MatchApiItem,
+  type UpdateApiItem,
+} from "@/services/api";
 
 type MatchItem = {
   id: number;
@@ -39,7 +45,7 @@ type TabId = "featured" | "live" | "upcoming";
 const navigationItems = [
   { id: "dashboard", label: "Dashboard", icon: "🏠", sectionId: "welcome-section" },
   { id: "expert-analysis", label: "Expert Analysis", icon: "📊", sectionId: "expert-analysis-section" },
-  { id: "coming-soon", label: "Coming Soon", icon: "🚀", sectionId: "coming-soon-section" },
+  { id: "updates", label: "Updates", icon: "📰", sectionId: "updates-section" },
 ] as const;
 
 const tabs = [
@@ -79,6 +85,72 @@ function formatDate(dateStr: string) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatRelativeTime(dateStr: string) {
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return "Just now";
+
+  const diffMs = Date.now() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function FormattedUpdateBody({ body }: { body: string }) {
+  const lines = body.split(/\r?\n/);
+  const bulletRegex = /^\s*([\-*•]|\d+[.)])\s+/;
+  const nodes: ReactNode[] = [];
+  let bullets: string[] = [];
+  let keyIndex = 0;
+
+  const flushBullets = () => {
+    if (bullets.length === 0) return;
+
+    nodes.push(
+      <ul key={`update-bullets-${keyIndex++}`} className="list-disc pl-5 space-y-1 text-sm sm:text-base text-gray-700">
+        {bullets.map((item, index) => (
+          <li key={`update-bullet-${index}`}>{item}</li>
+        ))}
+      </ul>
+    );
+    bullets = [];
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      flushBullets();
+      continue;
+    }
+
+    if (bulletRegex.test(line)) {
+      bullets.push(line.replace(bulletRegex, "").trim());
+      continue;
+    }
+
+    flushBullets();
+    nodes.push(
+      <p key={`update-paragraph-${keyIndex++}`} className="text-sm sm:text-base text-gray-700 leading-relaxed">
+        {line}
+      </p>
+    );
+  }
+
+  flushBullets();
+  return <div className="space-y-2">{nodes}</div>;
 }
 
 function getStatusColor(status: MatchItem["status"]) {
@@ -238,10 +310,14 @@ function EnhancedWelcomeHeader({ userName, isPremium }: { userName: string; isPr
 function ModernNavbar({
   userName,
   isPremium,
+  unreadUpdatesCount,
+  onOpenUpdates,
   onLogout,
 }: {
   userName: string;
   isPremium: boolean;
+  unreadUpdatesCount: number;
+  onOpenUpdates: () => void;
   onLogout: () => void;
 }) {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -263,6 +339,9 @@ function ModernNavbar({
 
   const scrollToSection = (sectionId: string, itemId: string) => {
     setActiveSection(itemId);
+    if (itemId === "updates") {
+      onOpenUpdates();
+    }
     const element = document.getElementById(sectionId);
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -373,6 +452,9 @@ function ModernNavbar({
                 <span className="relative z-10">
                   <span className="hidden lg:inline">{item.label}</span>
                   <span className="lg:hidden text-lg">{item.icon}</span>
+                  {item.id === "updates" && unreadUpdatesCount > 0 ? (
+                    <span className="ml-2 inline-flex h-2.5 w-2.5 rounded-full bg-red-500" aria-hidden="true" />
+                  ) : null}
                 </span>
               </motion.button>
             ))}
@@ -485,6 +567,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const [matches, setMatches] = useState<MatchItem[]>([]);
+  const [updates, setUpdates] = useState<UpdateApiItem[]>([]);
+  const [updatesLoading, setUpdatesLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("featured");
@@ -494,21 +578,69 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    const loadMatches = async () => {
+    const loadDashboardData = async () => {
       try {
         setLoading(true);
+        setUpdatesLoading(true);
         setError(null);
-        const data = await fetchMatches();
-        setMatches(data.map(mapApiMatchToUi));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load matches");
+
+        const [matchesResult, updatesResult] = await Promise.allSettled([
+          fetchMatches(),
+          getUpdates(),
+        ]);
+
+        if (matchesResult.status === "fulfilled") {
+          setMatches(matchesResult.value.map(mapApiMatchToUi));
+        } else {
+          setError(
+            matchesResult.reason instanceof Error
+              ? matchesResult.reason.message
+              : "Failed to load matches"
+          );
+        }
+
+        if (updatesResult.status === "fulfilled") {
+          setUpdates(updatesResult.value);
+        } else {
+          setUpdates([]);
+        }
       } finally {
         setLoading(false);
+        setUpdatesLoading(false);
       }
     };
 
-    loadMatches();
+    loadDashboardData();
   }, []);
+
+  const unreadUpdatesCount = useMemo(
+    () => updates.filter((item) => !item.is_read).length,
+    [updates]
+  );
+
+  const markUpdatesAsRead = async (updateIds: number[]) => {
+    const unreadIds = updateIds.filter((id) => updates.some((item) => item.id === id && !item.is_read));
+    if (unreadIds.length === 0) return;
+
+    setUpdates((prev) =>
+      prev.map((item) =>
+        unreadIds.includes(item.id)
+          ? { ...item, is_read: true }
+          : item
+      )
+    );
+
+    await Promise.allSettled(unreadIds.map((id) => markUpdateRead(id)));
+  };
+
+  const handleOpenUpdatesSection = () => {
+    const unreadIds = updates.filter((item) => !item.is_read).map((item) => item.id);
+    void markUpdatesAsRead(unreadIds);
+  };
+
+  const handleUpdateClick = (updateId: number) => {
+    void markUpdatesAsRead([updateId]);
+  };
 
   const liveMatches = useMemo(() => matches.filter((m) => m.status === "started"), [matches]);
   const upcomingMatches = useMemo(() => matches.filter((m) => m.status === "not_started"), [matches]);
@@ -540,6 +672,8 @@ export default function DashboardPage() {
       <ModernNavbar
         userName={session?.user?.name || "User"}
         isPremium={false}
+        unreadUpdatesCount={unreadUpdatesCount}
+        onOpenUpdates={handleOpenUpdatesSection}
         onLogout={() => void signOut({ callbackUrl: "/" })}
       />
 
@@ -716,6 +850,68 @@ export default function DashboardPage() {
             </motion.section>
 
             <motion.section id="expert-analysis-section" className="relative" />
+
+            <motion.section
+              id="updates-section"
+              initial={{ opacity: 0, y: 20, rotateX: 6 }}
+              animate={{ opacity: 1, y: 0, rotateX: 0 }}
+              transition={{ delay: 0.26, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="relative"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-500/5 via-violet-500/5 to-indigo-500/5 rounded-3xl blur-xl" />
+              <div
+                className="relative bg-white/15 backdrop-blur-2xl border border-white/30 rounded-3xl p-1 shadow-2xl shadow-black/5"
+                style={{
+                  backgroundImage: "linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.08) 100%)",
+                  backdropFilter: "blur(24px) saturate(180%)",
+                  WebkitBackdropFilter: "blur(24px) saturate(180%)",
+                }}
+              >
+                <div className="bg-white/40 backdrop-blur-sm rounded-3xl p-6 lg:p-8">
+                  <div className="flex items-center justify-between gap-3 mb-5">
+                    <div>
+                      <h2 className="text-2xl lg:text-3xl font-bold text-gray-900">Updates</h2>
+                      <p className="text-gray-600">Latest announcements and product changes</p>
+                    </div>
+                    {unreadUpdatesCount > 0 ? (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs sm:text-sm font-semibold text-red-700">
+                        <span className="h-2 w-2 rounded-full bg-red-500" aria-hidden="true" />
+                        {unreadUpdatesCount} new
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {updatesLoading ? (
+                    <div className="rounded-2xl border border-gray-200 bg-white/70 p-4 text-sm text-gray-600">Loading updates...</div>
+                  ) : updates.length === 0 ? (
+                    <div className="rounded-2xl border border-gray-200 bg-white/70 p-4 text-sm text-gray-600">No updates right now.</div>
+                  ) : (
+                    <div className="space-y-3 sm:space-y-4">
+                      {updates.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleUpdateClick(item.id)}
+                          className="w-full text-left rounded-2xl border border-gray-200/80 bg-white/80 p-4 sm:p-5 hover:shadow-lg transition-all duration-200"
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <h3 className="text-base sm:text-lg font-bold text-gray-900">{item.title}</h3>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {!item.is_read ? (
+                                <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] sm:text-xs font-semibold text-red-700">NEW</span>
+                              ) : null}
+                              <span className="text-xs sm:text-sm text-gray-500">{formatRelativeTime(item.created_at)}</span>
+                            </div>
+                          </div>
+                          <FormattedUpdateBody body={item.body} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.section>
+
             <motion.section
               initial={{ opacity: 0, y: 20, rotateX: 6 }}
               animate={{ opacity: 1, y: 0, rotateX: 0 }}
@@ -756,7 +952,6 @@ export default function DashboardPage() {
                 </div>
               </div>
             </motion.section>
-            <motion.section id="coming-soon-section" className="relative" />
           </motion.div>
         </div>
       </main>

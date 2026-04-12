@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import User
+from .models import UpdatePost, User
 
 
 @admin.register(User)
@@ -44,3 +44,20 @@ class UserAdmin(BaseUserAdmin):
 	def revoke_premium_access(self, request, queryset):
 		updated = queryset.update(is_premium=False, premium_expiry=None)
 		self.message_user(request, f"Premium revoked for {updated} user(s).")
+
+
+@admin.register(UpdatePost)
+class UpdatePostAdmin(admin.ModelAdmin):
+	list_display = ("title", "is_active", "created_at")
+	list_filter = ("is_active", "created_at")
+	search_fields = ("title", "body")
+	readonly_fields = ("created_at", "updated_at")
+	ordering = ("-created_at", "-id")
+	fieldsets = (
+		(
+			None,
+			{
+				"fields": ("title", "body", "is_active", "created_at", "updated_at"),
+			},
+		),
+	)

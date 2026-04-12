@@ -24,6 +24,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include("users.urls")),
     path("api/backend-auth/", include("users.urls")),
+    path("api/", include("users.updates_urls")),
     path("api/", include("matches.urls")),
     path("api/payment/", include("payments.urls")),
     path("api/pricing/", PricingAPIView.as_view(), name="pricing"),

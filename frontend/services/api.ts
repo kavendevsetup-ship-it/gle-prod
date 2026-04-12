@@ -82,6 +82,14 @@ export type PricingApiResponse = {
   monthly_offer_active?: boolean;
 };
 
+export type UpdateApiItem = {
+  id: number;
+  title: string;
+  body: string;
+  created_at: string;
+  is_read: boolean;
+};
+
 export type BackendAuthBridgePayload = {
   email: string;
   name?: string;
@@ -292,4 +300,49 @@ export async function getPricing(): Promise<PricingApiResponse> {
   }
 
   return (await response.json()) as PricingApiResponse;
+}
+
+export async function getUpdates(): Promise<UpdateApiItem[]> {
+  const token = getStoredAuthToken();
+  if (!token) return [];
+
+  const response = await fetch(buildApiUrl("updates/"), {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return [];
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch updates (${response.status})`);
+  }
+
+  const data = (await response.json()) as UpdateApiItem[];
+  return Array.isArray(data) ? data : [];
+}
+
+export async function markUpdateRead(updateId: number): Promise<void> {
+  const token = getStoredAuthToken();
+  if (!token) return;
+
+  const response = await fetch(buildApiUrl(`updates/${updateId}/mark-read/`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to mark update as read (${response.status})`);
+  }
 }
