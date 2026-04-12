@@ -73,7 +73,13 @@ export type PricingApiResponse = {
   weekly_price?: number;
   weekly_original_price?: number;
   monthly_price: number;
+  monthly_original_price?: number;
+  enable_weekly?: boolean;
+  enable_monthly?: boolean;
+  enable_match?: boolean;
   enable_match_plan?: boolean;
+  weekly_offer_active?: boolean;
+  monthly_offer_active?: boolean;
 };
 
 export type BackendAuthBridgePayload = {

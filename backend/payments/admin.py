@@ -22,18 +22,69 @@ class MatchPurchaseAdmin(admin.ModelAdmin):
 
 @admin.register(PricingConfig)
 class PricingConfigAdmin(admin.ModelAdmin):
-	list_display = ("match_price", "monthly_price", "is_active", "created_at")
-	list_filter = ("is_active", "created_at")
-	search_fields = ("match_price", "monthly_price")
+	list_display = (
+		"weekly_price",
+		"weekly_original_price",
+		"monthly_price",
+		"monthly_original_price",
+		"enable_weekly",
+		"enable_monthly",
+		"enable_match",
+		"weekly_offer_active",
+		"monthly_offer_active",
+		"is_active",
+		"created_at",
+	)
+	list_filter = (
+		"is_active",
+		"enable_weekly",
+		"enable_monthly",
+		"enable_match",
+		"weekly_offer_active",
+		"monthly_offer_active",
+		"created_at",
+	)
+	search_fields = (
+		"match_price",
+		"weekly_price",
+		"weekly_original_price",
+		"monthly_price",
+		"monthly_original_price",
+	)
 	readonly_fields = ("created_at",)
 	ordering = ("-created_at", "-id")
 
 	fieldsets = (
 		(
-			None,
+			"Plan Prices (Paise)",
 			{
 				"fields": (
-					("match_price", "monthly_price"),
+					"match_price",
+					("weekly_original_price", "weekly_price"),
+					("monthly_original_price", "monthly_price"),
+				),
+			},
+		),
+		(
+			"Plan Availability",
+			{
+				"fields": (
+					("enable_weekly", "enable_monthly", "enable_match"),
+				),
+			},
+		),
+		(
+			"Offer Toggles",
+			{
+				"fields": (
+					("weekly_offer_active", "monthly_offer_active"),
+				),
+			},
+		),
+		(
+			"Activation",
+			{
+				"fields": (
 					"is_active",
 					"created_at",
 				),

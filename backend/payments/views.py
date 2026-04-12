@@ -21,10 +21,6 @@ from .pricing import get_active_pricing
 PLAN_MATCH = "match"
 PLAN_SUBSCRIPTION = "subscription"
 PLAN_WEEKLY = "weekly"
-ENABLE_MATCH_PLAN = False
-WEEKLY_PRICE_PAISE = 12900
-WEEKLY_ORIGINAL_PRICE_PAISE = 19900
-WEEKLY_PRICE_INR = Decimal("129")
 
 logger = logging.getLogger(__name__)
 
@@ -56,11 +52,17 @@ class CreateOrderAPIView(APIView):
 		receipt = f"sub-{request.user.id}-{uuid.uuid4().hex[:10]}"
 
 		if plan_type == PLAN_WEEKLY:
-			amount_paise = WEEKLY_PRICE_PAISE
+			if not pricing.enable_weekly:
+				return Response({"detail": "weekly plan is currently disabled"}, status=400)
+
+			amount_paise = pricing.weekly_price
 			receipt = f"weekly-{request.user.id}-{uuid.uuid4().hex[:10]}"
 
+		if plan_type == PLAN_SUBSCRIPTION and not pricing.enable_monthly:
+			return Response({"detail": "monthly plan is currently disabled"}, status=400)
+
 		if plan_type == PLAN_MATCH:
-			if not ENABLE_MATCH_PLAN:
+			if not pricing.enable_match:
 				return Response({"detail": "match plan is currently disabled"}, status=400)
 
 			match_id = request.data.get("match_id")
@@ -171,13 +173,14 @@ class VerifyPaymentAPIView(APIView):
 
 		if not already_recorded:
 			pricing = get_active_pricing()
+			weekly_price_inr = Decimal(pricing.weekly_price) / Decimal("100")
 			monthly_price_inr = Decimal(pricing.monthly_price) / Decimal("100")
 			match_price_inr = Decimal(pricing.match_price) / Decimal("100")
 
 			if plan_type in {PLAN_SUBSCRIPTION, PLAN_WEEKLY}:
 				is_weekly = plan_type == PLAN_WEEKLY
 				subscription_duration_days = 7 if is_weekly else 30
-				subscription_amount = WEEKLY_PRICE_INR if is_weekly else monthly_price_inr
+				subscription_amount = weekly_price_inr if is_weekly else monthly_price_inr
 				subscription_start = timezone.now()
 				subscription_end = subscription_start + timedelta(days=subscription_duration_days)
 
@@ -256,9 +259,15 @@ class PricingAPIView(APIView):
 		return Response(
 			{
 				"match_price": pricing.match_price // 100,
-				"weekly_price": WEEKLY_PRICE_PAISE // 100,
-				"weekly_original_price": WEEKLY_ORIGINAL_PRICE_PAISE // 100,
+				"weekly_price": pricing.weekly_price // 100,
+				"weekly_original_price": pricing.weekly_original_price // 100,
 				"monthly_price": pricing.monthly_price // 100,
-				"enable_match_plan": ENABLE_MATCH_PLAN,
+				"monthly_original_price": pricing.monthly_original_price // 100,
+				"enable_weekly": pricing.enable_weekly,
+				"enable_monthly": pricing.enable_monthly,
+				"enable_match": pricing.enable_match,
+				"weekly_offer_active": pricing.weekly_offer_active,
+				"monthly_offer_active": pricing.monthly_offer_active,
+				"enable_match_plan": pricing.enable_match,
 			}
 		)

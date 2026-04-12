@@ -64,10 +64,27 @@ class PricingConfig(models.Model):
 		default=3900,
 		help_text="Price per match in paise (3900 = ₹39)",
 	)
+	weekly_price = models.IntegerField(
+		default=12900,
+		help_text="Offer price in paise",
+	)
+	weekly_original_price = models.IntegerField(
+		default=19900,
+		help_text="Strikethrough price",
+	)
 	monthly_price = models.IntegerField(
 		default=49900,
 		help_text="Monthly price in paise (49900 = ₹499)",
 	)
+	monthly_original_price = models.IntegerField(
+		default=49900,
+		help_text="Strikethrough price",
+	)
+	enable_weekly = models.BooleanField(default=True)
+	enable_monthly = models.BooleanField(default=True)
+	enable_match = models.BooleanField(default=False)
+	weekly_offer_active = models.BooleanField(default=True)
+	monthly_offer_active = models.BooleanField(default=False)
 	is_active = models.BooleanField(default=True)
 	created_at = models.DateTimeField(auto_now_add=True)
 
@@ -95,4 +112,7 @@ class PricingConfig(models.Model):
 
 	def __str__(self) -> str:
 		status = "Active" if self.is_active else "Inactive"
-		return f"{status} config: match {self.match_price} paise, monthly {self.monthly_price} paise"
+		return (
+			f"{status} config: match {self.match_price} paise, weekly {self.weekly_price} paise, "
+			f"monthly {self.monthly_price} paise"
+		)

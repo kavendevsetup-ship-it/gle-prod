@@ -58,7 +58,13 @@ const FALLBACK_PRICING: PricingApiResponse = {
   weekly_price: 129,
   weekly_original_price: 199,
   monthly_price: 499,
+  monthly_original_price: 499,
+  enable_weekly: true,
+  enable_monthly: true,
+  enable_match: false,
   enable_match_plan: false,
+  weekly_offer_active: true,
+  monthly_offer_active: false,
 };
 
 let razorpayScriptPromise: Promise<boolean> | null = null;
@@ -1058,7 +1064,14 @@ export default function MatchDetailsPage() {
   const [isVideoContentModalOpen, setIsVideoContentModalOpen] = useState(false);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
   const [pricing, setPricing] = useState<PricingApiResponse>(FALLBACK_PRICING);
-  const ENABLE_MATCH_PLAN = pricing.enable_match_plan ?? false;
+  const ENABLE_WEEKLY_PLAN = pricing.enable_weekly ?? FALLBACK_PRICING.enable_weekly ?? true;
+  const ENABLE_MONTHLY_PLAN = pricing.enable_monthly ?? FALLBACK_PRICING.enable_monthly ?? true;
+  const ENABLE_MATCH_PLAN =
+    pricing.enable_match ?? pricing.enable_match_plan ?? FALLBACK_PRICING.enable_match ?? false;
+  const WEEKLY_OFFER_ACTIVE =
+    pricing.weekly_offer_active ?? FALLBACK_PRICING.weekly_offer_active ?? true;
+  const MONTHLY_OFFER_ACTIVE =
+    pricing.monthly_offer_active ?? FALLBACK_PRICING.monthly_offer_active ?? false;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -1373,10 +1386,34 @@ export default function MatchDetailsPage() {
             Number.isFinite(pricingResult.monthly_price) && pricingResult.monthly_price > 0
               ? pricingResult.monthly_price
               : FALLBACK_PRICING.monthly_price,
+          monthly_original_price:
+            Number.isFinite(pricingResult.monthly_original_price) && (pricingResult.monthly_original_price ?? 0) > 0
+              ? pricingResult.monthly_original_price
+              : FALLBACK_PRICING.monthly_original_price,
+          enable_weekly:
+            typeof pricingResult.enable_weekly === "boolean"
+              ? pricingResult.enable_weekly
+              : FALLBACK_PRICING.enable_weekly,
+          enable_monthly:
+            typeof pricingResult.enable_monthly === "boolean"
+              ? pricingResult.enable_monthly
+              : FALLBACK_PRICING.enable_monthly,
+          enable_match:
+            typeof pricingResult.enable_match === "boolean"
+              ? pricingResult.enable_match
+              : FALLBACK_PRICING.enable_match,
           enable_match_plan:
             typeof pricingResult.enable_match_plan === "boolean"
               ? pricingResult.enable_match_plan
               : FALLBACK_PRICING.enable_match_plan,
+          weekly_offer_active:
+            typeof pricingResult.weekly_offer_active === "boolean"
+              ? pricingResult.weekly_offer_active
+              : FALLBACK_PRICING.weekly_offer_active,
+          monthly_offer_active:
+            typeof pricingResult.monthly_offer_active === "boolean"
+              ? pricingResult.monthly_offer_active
+              : FALLBACK_PRICING.monthly_offer_active,
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load match data");
@@ -1476,35 +1513,49 @@ export default function MatchDetailsPage() {
                       Unlock captain picks, differential teams, and advanced analysis.
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
-                      <div className="rounded-xl border border-orange-300/80 bg-gradient-to-br from-orange-50 to-amber-50 p-4 shadow-lg">
-                        <p className="text-xs font-semibold text-red-600 mb-1">🔥 Limited Time Offer</p>
-                        <p className="text-base sm:text-lg font-bold text-gray-900">Weekly Access</p>
-                        <div className="flex items-end gap-2 mt-1 mb-2">
-                          <span className="text-sm text-gray-500 line-through">₹{pricing.weekly_original_price}</span>
-                          <span className="text-2xl font-extrabold text-orange-600">₹{pricing.weekly_price}</span>
+                      {ENABLE_WEEKLY_PLAN ? (
+                        <div className="rounded-xl border border-orange-300/80 bg-gradient-to-br from-orange-50 to-amber-50 p-4 shadow-lg">
+                          {WEEKLY_OFFER_ACTIVE ? (
+                            <p className="text-xs font-semibold text-red-600 mb-1">🔥 Limited Time Offer</p>
+                          ) : null}
+                          <p className="text-base sm:text-lg font-bold text-gray-900">Weekly Access</p>
+                          <div className="flex items-end gap-2 mt-1 mb-2">
+                            {WEEKLY_OFFER_ACTIVE ? (
+                              <span className="text-sm text-gray-500 line-through">₹{pricing.weekly_original_price}</span>
+                            ) : null}
+                            <span className="text-2xl font-extrabold text-orange-600">₹{pricing.weekly_price}</span>
+                          </div>
+                          <p className="text-xs sm:text-sm text-gray-600 mb-3">Best for quick wins 🚀</p>
+                          <button
+                            onClick={handleUnlockWeekly}
+                            className="w-full bg-gradient-primary text-white py-3 px-5 rounded-xl text-sm sm:text-base font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
+                          >
+                            Unlock for 7 Days
+                          </button>
                         </div>
-                        <p className="text-xs sm:text-sm text-gray-600 mb-3">Best for quick wins 🚀</p>
-                        <button
-                          onClick={handleUnlockWeekly}
-                          className="w-full bg-gradient-primary text-white py-3 px-5 rounded-xl text-sm sm:text-base font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
-                        >
-                          Unlock for 7 Days
-                        </button>
-                      </div>
+                      ) : null}
 
-                      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-md">
-                        <p className="text-base sm:text-lg font-bold text-gray-900">Monthly Access</p>
-                        <div className="mt-1 mb-2">
-                          <span className="text-2xl font-extrabold text-gray-900">₹{pricing.monthly_price}</span>
+                      {ENABLE_MONTHLY_PLAN ? (
+                        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-md">
+                          {MONTHLY_OFFER_ACTIVE ? (
+                            <p className="text-xs font-semibold text-red-600 mb-1">Limited Offer</p>
+                          ) : null}
+                          <p className="text-base sm:text-lg font-bold text-gray-900">Monthly Access</p>
+                          <div className="flex items-end gap-2 mt-1 mb-2">
+                            {MONTHLY_OFFER_ACTIVE ? (
+                              <span className="text-sm text-gray-500 line-through">₹{pricing.monthly_original_price}</span>
+                            ) : null}
+                            <span className="text-2xl font-extrabold text-gray-900">₹{pricing.monthly_price}</span>
+                          </div>
+                          <p className="text-xs sm:text-sm text-gray-600 mb-3">Best value for consistent players</p>
+                          <button
+                            onClick={handleUnlockSubscription}
+                            className="w-full bg-white text-gray-900 border border-gray-200 py-3 px-5 rounded-xl text-sm sm:text-base font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
+                          >
+                            Unlock for 30 Days
+                          </button>
                         </div>
-                        <p className="text-xs sm:text-sm text-gray-600 mb-3">Best value for consistent players</p>
-                        <button
-                          onClick={handleUnlockSubscription}
-                          className="w-full bg-white text-gray-900 border border-gray-200 py-3 px-5 rounded-xl text-sm sm:text-base font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
-                        >
-                          Unlock for 30 Days
-                        </button>
-                      </div>
+                      ) : null}
 
                       {ENABLE_MATCH_PLAN ? (
                         <button
@@ -1513,6 +1564,12 @@ export default function MatchDetailsPage() {
                         >
                           Unlock Match ₹{pricing.match_price}
                         </button>
+                      ) : null}
+
+                      {!ENABLE_WEEKLY_PLAN && !ENABLE_MONTHLY_PLAN ? (
+                        <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600">
+                          No subscription plans are currently available.
+                        </div>
                       ) : null}
                     </div>
                   </div>
