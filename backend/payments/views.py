@@ -20,6 +20,11 @@ from .pricing import get_active_pricing
 
 PLAN_MATCH = "match"
 PLAN_SUBSCRIPTION = "subscription"
+PLAN_WEEKLY = "weekly"
+ENABLE_MATCH_PLAN = False
+WEEKLY_PRICE_PAISE = 12900
+WEEKLY_ORIGINAL_PRICE_PAISE = 19900
+WEEKLY_PRICE_INR = Decimal("129")
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +37,7 @@ def _get_razorpay_client() -> razorpay.Client:
 
 def _parse_plan_type(raw_value) -> str | None:
 	plan_type = str(raw_value or PLAN_MATCH).strip().lower()
-	if plan_type not in {PLAN_MATCH, PLAN_SUBSCRIPTION}:
+	if plan_type not in {PLAN_MATCH, PLAN_SUBSCRIPTION, PLAN_WEEKLY}:
 		return None
 	return plan_type
 
@@ -43,14 +48,21 @@ class CreateOrderAPIView(APIView):
 	def post(self, request):
 		plan_type = _parse_plan_type(request.data.get("type"))
 		if plan_type is None:
-			return Response({"detail": "type must be 'match' or 'subscription'"}, status=400)
+			return Response({"detail": "type must be 'match', 'weekly', or 'subscription'"}, status=400)
 
 		pricing = get_active_pricing()
 		match = None
 		amount_paise = pricing.monthly_price
 		receipt = f"sub-{request.user.id}-{uuid.uuid4().hex[:10]}"
 
+		if plan_type == PLAN_WEEKLY:
+			amount_paise = WEEKLY_PRICE_PAISE
+			receipt = f"weekly-{request.user.id}-{uuid.uuid4().hex[:10]}"
+
 		if plan_type == PLAN_MATCH:
+			if not ENABLE_MATCH_PLAN:
+				return Response({"detail": "match plan is currently disabled"}, status=400)
+
 			match_id = request.data.get("match_id")
 			if not match_id:
 				return Response({"detail": "match_id is required for type='match'"}, status=400)
@@ -110,7 +122,7 @@ class VerifyPaymentAPIView(APIView):
 		plan_type = _parse_plan_type(request.data.get("type"))
 
 		if plan_type is None:
-			return Response({"detail": "type must be 'match' or 'subscription'"}, status=400)
+			return Response({"detail": "type must be 'match', 'weekly', or 'subscription'"}, status=400)
 
 		if not all([razorpay_order_id, razorpay_payment_id, razorpay_signature]):
 			return Response(
@@ -162,9 +174,12 @@ class VerifyPaymentAPIView(APIView):
 			monthly_price_inr = Decimal(pricing.monthly_price) / Decimal("100")
 			match_price_inr = Decimal(pricing.match_price) / Decimal("100")
 
-			if plan_type == PLAN_SUBSCRIPTION:
+			if plan_type in {PLAN_SUBSCRIPTION, PLAN_WEEKLY}:
+				is_weekly = plan_type == PLAN_WEEKLY
+				subscription_duration_days = 7 if is_weekly else 30
+				subscription_amount = WEEKLY_PRICE_INR if is_weekly else monthly_price_inr
 				subscription_start = timezone.now()
-				subscription_end = subscription_start + timedelta(days=30)
+				subscription_end = subscription_start + timedelta(days=subscription_duration_days)
 
 				MatchPurchase.objects.create(
 					user=request.user,
@@ -173,7 +188,7 @@ class VerifyPaymentAPIView(APIView):
 					subscription_start=subscription_start,
 					subscription_end=subscription_end,
 					payment_id=razorpay_payment_id,
-					amount=monthly_price_inr,
+					amount=subscription_amount,
 					status=MatchPurchase.PurchaseStatus.SUCCESS,
 				)
 			else:
@@ -241,6 +256,9 @@ class PricingAPIView(APIView):
 		return Response(
 			{
 				"match_price": pricing.match_price // 100,
+				"weekly_price": WEEKLY_PRICE_PAISE // 100,
+				"weekly_original_price": WEEKLY_ORIGINAL_PRICE_PAISE // 100,
 				"monthly_price": pricing.monthly_price // 100,
+				"enable_match_plan": ENABLE_MATCH_PLAN,
 			}
 		)

@@ -8,6 +8,7 @@ import {
   getPricing,
   getMatchAccess,
   getMatchDetails,
+  type PaymentPlanType,
   type PricingApiResponse,
   verifyPayment,
   type FreeContentApiItem,
@@ -54,7 +55,10 @@ type PremiumVideoItem = PremiumContentApiItem & {
 
 const FALLBACK_PRICING: PricingApiResponse = {
   match_price: 39,
+  weekly_price: 129,
+  weekly_original_price: 199,
   monthly_price: 499,
+  enable_match_plan: false,
 };
 
 let razorpayScriptPromise: Promise<boolean> | null = null;
@@ -1054,6 +1058,7 @@ export default function MatchDetailsPage() {
   const [isVideoContentModalOpen, setIsVideoContentModalOpen] = useState(false);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
   const [pricing, setPricing] = useState<PricingApiResponse>(FALLBACK_PRICING);
+  const ENABLE_MATCH_PLAN = pricing.enable_match_plan ?? false;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -1231,7 +1236,7 @@ export default function MatchDetailsPage() {
   };
 
   const initiatePayment = async (
-    planType: "match" | "subscription",
+    planType: PaymentPlanType,
     matchIdToUnlock?: number,
     matchName?: string
   ) => {
@@ -1247,7 +1252,7 @@ export default function MatchDetailsPage() {
       const order = await createPaymentOrder(
         planType === "match"
           ? { type: "match", match_id: matchIdToUnlock }
-          : { type: "subscription" }
+          : { type: planType }
       );
       const razorpayKey = order.key || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
       if (!razorpayKey) {
@@ -1262,7 +1267,11 @@ export default function MatchDetailsPage() {
         order_id: order.order_id,
         name: "Grand League Expert",
         description:
-          planType === "subscription" ? "Monthly KAIRO Access" : matchName,
+          planType === "weekly"
+            ? "Weekly KAIRO Access"
+            : planType === "subscription"
+              ? "Monthly KAIRO Access"
+              : matchName,
         handler: async (response: RazorpayHandlerResponse) => {
           try {
             const verify = await verifyPayment({
@@ -1320,6 +1329,10 @@ export default function MatchDetailsPage() {
     await initiatePayment("match", match.id, match.match_name);
   };
 
+  const handleUnlockWeekly = async () => {
+    await initiatePayment("weekly");
+  };
+
   const handleUnlockSubscription = async () => {
     await initiatePayment("subscription");
   };
@@ -1348,10 +1361,22 @@ export default function MatchDetailsPage() {
             Number.isFinite(pricingResult.match_price) && pricingResult.match_price > 0
               ? pricingResult.match_price
               : FALLBACK_PRICING.match_price,
+          weekly_price:
+            Number.isFinite(pricingResult.weekly_price) && (pricingResult.weekly_price ?? 0) > 0
+              ? pricingResult.weekly_price
+              : FALLBACK_PRICING.weekly_price,
+          weekly_original_price:
+            Number.isFinite(pricingResult.weekly_original_price) && (pricingResult.weekly_original_price ?? 0) > 0
+              ? pricingResult.weekly_original_price
+              : FALLBACK_PRICING.weekly_original_price,
           monthly_price:
             Number.isFinite(pricingResult.monthly_price) && pricingResult.monthly_price > 0
               ? pricingResult.monthly_price
               : FALLBACK_PRICING.monthly_price,
+          enable_match_plan:
+            typeof pricingResult.enable_match_plan === "boolean"
+              ? pricingResult.enable_match_plan
+              : FALLBACK_PRICING.enable_match_plan,
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load match data");
@@ -1398,7 +1423,7 @@ export default function MatchDetailsPage() {
               <div className="flex items-center justify-between mb-4 sm:mb-5">
                 <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">KAIRO Analysis &amp; KAIRO Teams</h2>
                 <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-gradient-primary text-white shadow-lg">
-                  {access ? (isSubscriptionAccess ? "Monthly ✅" : "Unlocked ✅") : "KAIRO"}
+                  {access ? (isSubscriptionAccess ? "Subscribed ✅" : "Unlocked ✅") : "KAIRO"}
                 </span>
               </div>
 
@@ -1450,19 +1475,45 @@ export default function MatchDetailsPage() {
                     <p className="text-sm sm:text-base text-gray-600 mb-6 max-w-lg mx-auto">
                       Unlock captain picks, differential teams, and advanced analysis.
                     </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <button
-                        onClick={handleUnlockPremium}
-                        className="w-full bg-gradient-primary text-white py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
-                      >
-                        Unlock Match ₹{pricing.match_price}
-                      </button>
-                      <button
-                        onClick={handleUnlockSubscription}
-                        className="w-full bg-white text-gray-900 border border-gray-200 py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
-                      >
-                        Monthly ₹{pricing.monthly_price}
-                      </button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                      <div className="rounded-xl border border-orange-300/80 bg-gradient-to-br from-orange-50 to-amber-50 p-4 shadow-lg">
+                        <p className="text-xs font-semibold text-red-600 mb-1">🔥 Limited Time Offer</p>
+                        <p className="text-base sm:text-lg font-bold text-gray-900">Weekly Access</p>
+                        <div className="flex items-end gap-2 mt-1 mb-2">
+                          <span className="text-sm text-gray-500 line-through">₹{pricing.weekly_original_price}</span>
+                          <span className="text-2xl font-extrabold text-orange-600">₹{pricing.weekly_price}</span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-gray-600 mb-3">Best for quick wins 🚀</p>
+                        <button
+                          onClick={handleUnlockWeekly}
+                          className="w-full bg-gradient-primary text-white py-3 px-5 rounded-xl text-sm sm:text-base font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
+                        >
+                          Unlock for 7 Days
+                        </button>
+                      </div>
+
+                      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-md">
+                        <p className="text-base sm:text-lg font-bold text-gray-900">Monthly Access</p>
+                        <div className="mt-1 mb-2">
+                          <span className="text-2xl font-extrabold text-gray-900">₹{pricing.monthly_price}</span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-gray-600 mb-3">Best value for consistent players</p>
+                        <button
+                          onClick={handleUnlockSubscription}
+                          className="w-full bg-white text-gray-900 border border-gray-200 py-3 px-5 rounded-xl text-sm sm:text-base font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5"
+                        >
+                          Unlock for 30 Days
+                        </button>
+                      </div>
+
+                      {ENABLE_MATCH_PLAN ? (
+                        <button
+                          onClick={handleUnlockPremium}
+                          className="w-full bg-white text-gray-900 border border-gray-200 py-3 sm:py-4 px-6 rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-0.5 sm:col-span-2"
+                        >
+                          Unlock Match ₹{pricing.match_price}
+                        </button>
+                      ) : null}
                     </div>
                   </div>
 

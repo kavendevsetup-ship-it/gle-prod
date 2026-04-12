@@ -36,7 +36,7 @@ export type MatchAccessApiResponse = {
   is_subscription: boolean;
 };
 
-export type PaymentPlanType = "match" | "subscription";
+export type PaymentPlanType = "match" | "weekly" | "subscription";
 
 export type CreateOrderPayload = {
   type: PaymentPlanType;
@@ -70,7 +70,10 @@ export type VerifyPaymentResponse = {
 
 export type PricingApiResponse = {
   match_price: number;
+  weekly_price?: number;
+  weekly_original_price?: number;
   monthly_price: number;
+  enable_match_plan?: boolean;
 };
 
 export type BackendAuthBridgePayload = {
