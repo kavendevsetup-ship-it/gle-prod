@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signIn } from 'next-auth/react';
+import { Rocket, Sparkles, TriangleAlert, Wrench } from 'lucide-react';
 
 /**
  * Development Authentication Bypass - DEVELOPMENT ONLY
@@ -98,7 +99,7 @@ export const DevelopmentAuthBypass: React.FC = () => {
           animate={{ rotate: isExpanded ? 45 : 0 }}
           transition={{ duration: 0.2 }}
         >
-          🛠️
+          <Wrench className="h-5 w-5" aria-hidden="true" />
         </motion.div>
       </motion.button>
 
@@ -114,7 +115,10 @@ export const DevelopmentAuthBypass: React.FC = () => {
           >
             {/* Header */}
             <div className="mb-4 pb-3 border-b border-gray-200">
-              <h3 className="font-bold text-gray-900 text-sm">🚀 Dev Authentication</h3>
+              <h3 className="font-bold text-gray-900 text-sm inline-flex items-center gap-1.5">
+                <Rocket className="h-4 w-4" aria-hidden="true" />
+                <span>Dev Authentication</span>
+              </h3>
               <p className="text-xs text-gray-600 mt-1">
                 Quick login for development & testing
               </p>
@@ -145,8 +149,9 @@ export const DevelopmentAuthBypass: React.FC = () => {
                           {user.name}
                         </span>
                         {user.isPremium && (
-                          <span className="text-xs bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-0.5 rounded-full font-bold">
-                            ✨ Premium
+                          <span className="text-xs bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1">
+                            <Sparkles className="h-3 w-3" aria-hidden="true" />
+                            <span>Premium</span>
                           </span>
                         )}
                       </div>
@@ -159,8 +164,9 @@ export const DevelopmentAuthBypass: React.FC = () => {
 
             {/* Footer */}
             <div className="mt-4 pt-3 border-t border-gray-200">
-              <p className="text-xs text-gray-500 text-center">
-                ⚠️ Development mode only - Hidden in production
+              <p className="text-xs text-gray-500 text-center inline-flex items-center justify-center gap-1.5 w-full">
+                <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Development mode only - Hidden in production</span>
               </p>
             </div>
           </motion.div>

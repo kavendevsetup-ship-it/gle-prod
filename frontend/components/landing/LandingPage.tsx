@@ -170,7 +170,7 @@ export const LandingPage: React.FC = () => {
                       if (fallback) fallback.style.display = 'block';
                     }}
                   />
-                  <span className="text-white font-bold text-2xl sm:text-3xl lg:text-4xl hidden">🏏</span>
+                  <Award className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 text-white hidden" aria-hidden="true" />
                 </motion.div>
                 <motion.div
                   className="absolute -top-2 -right-2 w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-yellow-400 to-orange-400 rounded-full flex items-center justify-center shadow-lg sparkle-enhanced"

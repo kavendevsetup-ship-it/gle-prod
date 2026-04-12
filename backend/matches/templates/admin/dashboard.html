@@ -226,6 +226,86 @@
 
   <section class="panel">
     <div class="panel-head">
+      <h2>Premium Users Overview</h2>
+      <span class="meta-count">Showing {{ premium_users_filtered_count }} of {{ premium_users_total_count }}</span>
+    </div>
+
+    <form method="get" class="premium-filter-bar">
+      {% if range_key == '7' or range_key == '30' %}
+        <input type="hidden" name="range" value="{{ range_key }}" />
+      {% endif %}
+      <input type="hidden" name="start" value="{{ start_date|date:'Y-m-d' }}" />
+      <input type="hidden" name="end" value="{{ end_date|date:'Y-m-d' }}" />
+      <input type="hidden" name="premium_status" value="{{ premium_filter_status }}" />
+      <input type="hidden" name="premium_plan" value="{{ premium_filter_plan }}" />
+
+      <label class="search-label" for="premium-search">Search</label>
+      <input
+        id="premium-search"
+        type="search"
+        name="premium_search"
+        value="{{ premium_filter_search }}"
+        placeholder="Search by email or username"
+      />
+      <button type="submit" class="btn-primary">Search</button>
+      <a class="btn-secondary" href="{% url 'admin:analytics-dashboard' %}{{ dashboard_urls.status_all }}">Reset</a>
+    </form>
+
+    <div class="filter-chip-row">
+      <a href="{% url 'admin:analytics-dashboard' %}{{ dashboard_urls.status_all }}" class="chip{% if premium_filter_status == 'all' %} chip-active{% endif %}">All Status</a>
+      <a href="{% url 'admin:analytics-dashboard' %}{{ dashboard_urls.status_active }}" class="chip{% if premium_filter_status == 'active' %} chip-active{% endif %}">Active Users</a>
+      <a href="{% url 'admin:analytics-dashboard' %}{{ dashboard_urls.status_expired }}" class="chip{% if premium_filter_status == 'expired' %} chip-active{% endif %}">Expired Users</a>
+      <a href="{% url 'admin:analytics-dashboard' %}{{ dashboard_urls.plan_all }}" class="chip{% if premium_filter_plan == 'all' %} chip-active{% endif %}">All Plans</a>
+      <a href="{% url 'admin:analytics-dashboard' %}{{ dashboard_urls.plan_weekly }}" class="chip{% if premium_filter_plan == 'weekly' %} chip-active{% endif %}">Weekly Users</a>
+      <a href="{% url 'admin:analytics-dashboard' %}{{ dashboard_urls.plan_monthly }}" class="chip{% if premium_filter_plan == 'monthly' %} chip-active{% endif %}">Monthly Users</a>
+    </div>
+
+    <table class="table-clean">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Plan Type</th>
+          <th>Status</th>
+          <th>Days Left</th>
+          <th>Expiry Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in premium_users_overview %}
+          <tr>
+            <td>
+              <strong>{{ row.email }}</strong>
+              <div class="cell-muted">{{ row.username }}</div>
+            </td>
+            <td>{{ row.plan_type }}</td>
+            <td>
+              <span class="status-badge{% if row.is_active %} status-active{% else %} status-expired{% endif %}">
+                {{ row.status }}
+              </span>
+            </td>
+            <td>{{ row.days_left }}</td>
+            <td>{% if row.expiry %}{{ row.expiry|date:"d M Y, h:i A" }}{% else %}-{% endif %}</td>
+            <td>
+              <div class="row-actions">
+                <a href="{{ row.view_user_url }}">View User</a>
+                <a href="{{ row.override_url }}">Override Access</a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6">No premium users found for the selected filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if premium_users_limited %}
+      <p class="limit-note">Results limited to latest 100 users for performance.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
       <h2>Quick Actions</h2>
     </div>
     <div class="action-row">

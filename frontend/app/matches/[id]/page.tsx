@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { CheckCircle2, FileImage, FileText, Flame, Video, X, type LucideIcon } from "lucide-react";
 
 import {
   createPaymentOrder,
@@ -361,7 +362,10 @@ function FreeTextContentModal({
       <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl border border-gray-200">
         <div className="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <div>
-            <p className="text-xs sm:text-sm text-emerald-700 font-semibold">📝 Text Report</p>
+            <p className="text-xs sm:text-sm text-emerald-700 font-semibold inline-flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Text Report</span>
+            </p>
             <h3 className="text-lg sm:text-xl font-bold text-gray-900">Free Match Analysis</h3>
           </div>
           <button
@@ -370,7 +374,7 @@ function FreeTextContentModal({
             className="rounded-full border border-gray-200 bg-white text-gray-700 w-9 h-9 flex items-center justify-center hover:bg-gray-50"
             aria-label="Close text report"
           >
-            ✕
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
@@ -429,7 +433,7 @@ function PdfViewerModal({
           className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 rounded-full bg-white text-gray-900 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center border border-gray-200 hover:bg-gray-50 transition-colors"
           aria-label="Close PDF viewer"
         >
-          ✕
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
 
         <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 px-3 py-1.5 rounded-full bg-gray-900/85 text-white text-xs sm:text-sm font-medium">
@@ -593,7 +597,7 @@ function ImageViewerModal({
           className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 rounded-full bg-white/90 text-gray-900 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white transition-colors"
           aria-label="Close gallery"
         >
-          ✕
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
 
         <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 px-3 py-1.5 rounded-full bg-black/55 text-white text-xs sm:text-sm font-medium">
@@ -684,16 +688,18 @@ function PremiumContentCard({
   ctaLabel,
   onClick,
 }: {
-  icon: string;
+  icon: LucideIcon;
   title: string;
   description: string;
   ctaLabel: string;
   onClick: () => void;
 }) {
+  const Icon = icon;
+
   return (
     <div className="bg-gradient-card rounded-2xl border border-gray-200/60 p-5 sm:p-6 shadow-md hover:shadow-craft-lg transition-all duration-300">
       <div className="flex items-center gap-2.5 mb-3">
-        <span className="text-lg" aria-hidden="true">{icon}</span>
+        <Icon className="h-5 w-5 text-gray-700" aria-hidden="true" />
         <h3 className="text-base sm:text-lg font-semibold text-gray-900">{title}</h3>
       </div>
       <p className="text-sm text-gray-600 leading-relaxed mb-4">{description}</p>
@@ -818,7 +824,10 @@ function TextContentModal({
       <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl border border-gray-200">
         <div className="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <div>
-            <p className="text-xs sm:text-sm text-amber-700 font-semibold">📝 Text Content</p>
+            <p className="text-xs sm:text-sm text-amber-700 font-semibold inline-flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>KAIRO Match Analysis</span>
+            </p>
             <h3 className="text-lg sm:text-xl font-bold text-gray-900">Premium Match Analysis</h3>
           </div>
           <button
@@ -827,7 +836,7 @@ function TextContentModal({
             className="rounded-full border border-gray-200 bg-white text-gray-700 w-9 h-9 flex items-center justify-center hover:bg-gray-50"
             aria-label="Close text analysis"
           >
-            ✕
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
@@ -931,11 +940,12 @@ function VideoContentModal({
           className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 rounded-full bg-white/90 text-gray-900 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white transition-colors"
           aria-label="Close video analysis"
         >
-          ✕
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
 
-        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 px-3 py-1.5 rounded-full bg-black/55 text-white text-xs sm:text-sm font-medium">
-          🎥 Video Content • {activeIndex + 1} / {videos.length}
+        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 px-3 py-1.5 rounded-full bg-black/55 text-white text-xs sm:text-sm font-medium inline-flex items-center gap-1.5">
+          <Video className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>KAIRO Updates • {activeIndex + 1} / {videos.length}</span>
         </div>
 
         <div className="relative flex items-center justify-center min-h-[55vh] sm:min-h-[64vh] px-2 sm:px-12 py-12 sm:py-14">
@@ -1024,25 +1034,47 @@ function VideoContentModal({
 }
 
 function LockedPremiumPreviewCards() {
-  const cards = [
-    { id: "text", icon: "📝", title: "Text Content", action: "View Analysis" },
-    { id: "image", icon: "🖼️", title: "Image Content", action: "View Analysis" },
-    { id: "video", icon: "🎥", title: "Video Content", action: "Watch Analysis" },
+  const cards: Array<{ id: string; icon: LucideIcon; title: string; description: string; action: string }> = [
+    {
+      id: "text",
+      icon: FileText,
+      title: "KAIRO Match Analysis",
+      description: "Premium KAIRO match analysis with structured insights",
+      action: "View Analysis",
+    },
+    {
+      id: "image",
+      icon: FileImage,
+      title: "KAIRO GL Teams",
+      description: "Premium KAIRO GL teams in gallery format",
+      action: "View Analysis",
+    },
+    {
+      id: "video",
+      icon: Video,
+      title: "KAIRO Updates",
+      description: "Premium KAIRO update videos for quick review",
+      action: "Watch Analysis",
+    },
   ];
 
   return (
     <div className="relative rounded-2xl border border-gray-200/60 bg-white/55 overflow-hidden">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 p-3 sm:p-4 select-none pointer-events-none blur-[6px] opacity-45">
-        {cards.map((card) => (
-          <div key={card.id} className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
-            <p className="text-lg mb-2" aria-hidden="true">{card.icon}</p>
+        {cards.map((card) => {
+          const Icon = card.icon;
+
+          return (
+            <div key={card.id} className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+              <Icon className="h-5 w-5 text-gray-700 mb-2" aria-hidden="true" />
             <h4 className="text-sm font-semibold text-gray-900 mb-2">{card.title}</h4>
-            <p className="text-xs text-gray-600 mb-3">Premium match analysis</p>
+            <p className="text-xs text-gray-600 mb-3">{card.description}</p>
             <button type="button" className="w-full rounded-lg bg-gray-200 text-gray-700 text-xs font-medium py-2">
               {card.action}
             </button>
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-white/45 to-white/85" />
     </div>
@@ -1565,8 +1597,15 @@ export default function MatchDetailsPage() {
             <section>
               <div className="flex items-center justify-between mb-4 sm:mb-5">
                 <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">KAIRO Analysis &amp; KAIRO Teams</h2>
-                <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-gradient-primary text-white shadow-lg">
-                  {access ? (isSubscriptionAccess ? "Subscribed ✅" : "Unlocked ✅") : "KAIRO"}
+                <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-gradient-primary text-white shadow-lg inline-flex items-center gap-1.5">
+                  {access ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{isSubscriptionAccess ? "Subscribed" : "Unlocked"}</span>
+                    </>
+                  ) : (
+                    "KAIRO"
+                  )}
                 </span>
               </div>
 
@@ -1576,9 +1615,9 @@ export default function MatchDetailsPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                       {premiumTextContent.length > 0 ? (
                         <PremiumContentCard
-                          icon="📝"
-                          title="Text Content"
-                          description={`${premiumTextContent.length} premium analysis section${premiumTextContent.length > 1 ? "s" : ""} available with structured insights.`}
+                          icon={FileText}
+                          title="KAIRO Match Analysis"
+                          description={`${premiumTextContent.length} KAIRO match analysis section${premiumTextContent.length > 1 ? "s" : ""} available with structured insights.`}
                           ctaLabel="View Analysis"
                           onClick={openTextContentModal}
                         />
@@ -1586,9 +1625,9 @@ export default function MatchDetailsPage() {
 
                       {premiumImageGallery.length > 0 ? (
                         <PremiumContentCard
-                          icon="🖼️"
-                          title="Image Content"
-                          description={`${premiumImageGallery.length} premium image${premiumImageGallery.length > 1 ? "s" : ""} available in gallery mode.`}
+                          icon={FileImage}
+                          title="KAIRO GL Teams"
+                          description={`${premiumImageGallery.length} KAIRO GL team image${premiumImageGallery.length > 1 ? "s" : ""} available in gallery mode.`}
                           ctaLabel="View Analysis"
                           onClick={openPremiumImageViewer}
                         />
@@ -1596,9 +1635,9 @@ export default function MatchDetailsPage() {
 
                       {premiumVideoContent.length > 0 ? (
                         <PremiumContentCard
-                          icon="🎥"
-                          title="Video Content"
-                          description={`${premiumVideoContent.length} premium video${premiumVideoContent.length > 1 ? "s" : ""} available for streaming.`}
+                          icon={Video}
+                          title="KAIRO Updates"
+                          description={`${premiumVideoContent.length} KAIRO update video${premiumVideoContent.length > 1 ? "s" : ""} available for streaming.`}
                           ctaLabel="Watch Analysis"
                           onClick={openVideoContentModal}
                         />
@@ -1622,7 +1661,10 @@ export default function MatchDetailsPage() {
                       {ENABLE_WEEKLY_PLAN ? (
                         <div className="rounded-xl border border-orange-300/80 bg-gradient-to-br from-orange-50 to-amber-50 p-4 shadow-lg">
                           {WEEKLY_OFFER_ACTIVE ? (
-                            <p className="text-xs font-semibold text-red-600 mb-1">🔥 Limited Time Offer</p>
+                            <p className="text-xs font-semibold text-red-600 mb-1 inline-flex items-center gap-1">
+                              <Flame className="h-3.5 w-3.5" aria-hidden="true" />
+                              <span>Limited Time Offer</span>
+                            </p>
                           ) : null}
                           <p className="text-base sm:text-lg font-bold text-gray-900">Weekly Access</p>
                           <div className="flex items-end gap-2 mt-1 mb-2">
@@ -1631,7 +1673,7 @@ export default function MatchDetailsPage() {
                             ) : null}
                             <span className="text-2xl font-extrabold text-orange-600">₹{pricing.weekly_price}</span>
                           </div>
-                          <p className="text-xs sm:text-sm text-gray-600 mb-3">Best for quick wins 🚀</p>
+                          <p className="text-xs sm:text-sm text-gray-600 mb-3">Best for quick wins</p>
                           <button
                             onClick={handleUnlockWeekly}
                             disabled={isPaymentInProgress}

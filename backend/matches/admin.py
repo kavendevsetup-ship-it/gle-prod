@@ -1,6 +1,7 @@
 import os
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from urllib.parse import urlencode
 
 from botocore.exceptions import BotoCoreError, ClientError
 from django import forms
@@ -8,7 +9,7 @@ from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncDate
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
@@ -18,7 +19,7 @@ from django.utils import timezone
 from django.urls import path, reverse
 from zoneinfo import ZoneInfo
 
-from payments.models import MatchPurchase
+from payments.models import AdminAccessOverride, MatchPurchase, UserSubscription
 
 from .models import FreeContent, Match, PremiumContent
 
@@ -513,6 +514,174 @@ def _build_chart_points(start_date, end_date, value_map):
 	return points
 
 
+def _parse_premium_filters(request):
+	status = (request.GET.get("premium_status") or "all").strip().lower()
+	if status not in {"all", "active", "expired"}:
+		status = "all"
+
+	plan = (request.GET.get("premium_plan") or "all").strip().lower()
+	if plan not in {"all", "weekly", "monthly", "override"}:
+		plan = "all"
+
+	search = (request.GET.get("premium_search") or "").strip()
+	return status, plan, search
+
+
+def _build_dashboard_querystring(
+	*,
+	range_key,
+	start_date,
+	end_date,
+	premium_status,
+	premium_plan,
+	premium_search,
+):
+	params = {
+		"start": start_date.isoformat(),
+		"end": end_date.isoformat(),
+	}
+
+	if range_key in {"7", "30"}:
+		params["range"] = range_key
+
+	if premium_status and premium_status != "all":
+		params["premium_status"] = premium_status
+	if premium_plan and premium_plan != "all":
+		params["premium_plan"] = premium_plan
+	if premium_search:
+		params["premium_search"] = premium_search
+
+	return f"?{urlencode(params)}"
+
+
+def _build_premium_user_rows(*, now, premium_status, premium_plan, premium_search, max_rows=100):
+	User = get_user_model()
+	search_filter = Q()
+	if premium_search:
+		search_filter = Q(user__email__icontains=premium_search) | Q(user__username__icontains=premium_search)
+
+	latest_overrides_qs = (
+		AdminAccessOverride.objects.select_related("user")
+		.filter(search_filter)
+		.order_by("user_id", "-updated_at", "-id")
+		.distinct("user_id")
+	)
+
+	user_search_filter = Q()
+	if premium_search:
+		user_search_filter = Q(user__email__icontains=premium_search) | Q(user__username__icontains=premium_search)
+
+	subscriptions_qs = UserSubscription.objects.select_related("user").filter(user_search_filter)
+
+	override_map = {override.user_id: override for override in latest_overrides_qs}
+	subscription_map = {subscription.user_id: subscription for subscription in subscriptions_qs}
+	user_ids = set(override_map.keys()) | set(subscription_map.keys())
+
+	users = {
+		user.id: user
+		for user in User.objects.filter(id__in=user_ids)
+		.only("id", "email", "username")
+	}
+
+	rows = []
+	for user_id in user_ids:
+		user = users.get(user_id)
+		if user is None:
+			continue
+
+		override = override_map.get(user_id)
+		subscription = subscription_map.get(user_id)
+
+		effective_plan = "-"
+		effective_expiry = None
+		effective_active = False
+
+		if override is not None:
+			if not override.is_active:
+				effective_plan = "Override"
+				effective_expiry = override.end_date
+				effective_active = False
+			elif override.end_date and override.end_date > now:
+				effective_plan = "Override"
+				effective_expiry = override.end_date
+				effective_active = True
+			else:
+				if (
+					subscription is not None
+					and subscription.is_active
+					and subscription.end_date
+					and subscription.end_date > now
+				):
+					effective_plan = (
+						"Weekly"
+						if subscription.plan_type == UserSubscription.PlanType.WEEKLY
+						else "Monthly"
+					)
+					effective_expiry = subscription.end_date
+					effective_active = True
+				else:
+					effective_plan = "Override"
+					effective_expiry = override.end_date
+					effective_active = False
+		elif subscription is not None:
+			effective_plan = (
+				"Weekly"
+				if subscription.plan_type == UserSubscription.PlanType.WEEKLY
+				else "Monthly"
+			)
+			effective_expiry = subscription.end_date
+			effective_active = bool(
+				subscription.is_active and subscription.end_date and subscription.end_date > now
+			)
+
+		days_left = 0
+		if effective_active and effective_expiry:
+			days_left = max((effective_expiry - now).days, 0)
+
+		row = {
+			"user": user,
+			"email": user.email,
+			"username": user.username,
+			"plan_type": effective_plan,
+			"status": "Active" if effective_active else "Expired",
+			"days_left": days_left,
+			"expiry": effective_expiry,
+			"is_active": effective_active,
+			"view_user_url": reverse("admin:users_user_change", args=[user.id]),
+			"override_url": f"{reverse('admin:payments_adminaccessoverride_changelist')}?user__id__exact={user.id}",
+		}
+		rows.append(row)
+
+	filtered_rows = rows
+	if premium_status == "active":
+		filtered_rows = [row for row in filtered_rows if row["is_active"]]
+	elif premium_status == "expired":
+		filtered_rows = [row for row in filtered_rows if not row["is_active"]]
+
+	if premium_plan == "weekly":
+		filtered_rows = [row for row in filtered_rows if row["plan_type"] == "Weekly"]
+	elif premium_plan == "monthly":
+		filtered_rows = [row for row in filtered_rows if row["plan_type"] == "Monthly"]
+	elif premium_plan == "override":
+		filtered_rows = [row for row in filtered_rows if row["plan_type"] == "Override"]
+
+	filtered_rows.sort(
+		key=lambda row: (
+			0 if row["is_active"] else 1,
+			-(row["expiry"].timestamp() if row["expiry"] else 0),
+			row["email"],
+		)
+	)
+
+	limited_rows = filtered_rows[:max_rows]
+	return {
+		"rows": limited_rows,
+		"total_count": len(rows),
+		"filtered_count": len(filtered_rows),
+		"limited": len(filtered_rows) > max_rows,
+	}
+
+
 def _admin_dashboard_view(request):
 	if not request.user.is_superuser:
 		raise PermissionDenied("Only superusers can access the analytics dashboard.")
@@ -520,6 +689,7 @@ def _admin_dashboard_view(request):
 	User = get_user_model()
 	now = timezone.now()
 	start_date, end_date, range_key = _parse_dashboard_dates(request)
+	premium_status, premium_plan, premium_search = _parse_premium_filters(request)
 
 	tz = timezone.get_current_timezone()
 	start_dt = timezone.make_aware(datetime.combine(start_date, time.min), tz)
@@ -593,6 +763,65 @@ def _admin_dashboard_view(request):
 		.order_by("-created_at")[:10]
 	)
 
+	premium_data = _build_premium_user_rows(
+		now=now,
+		premium_status=premium_status,
+		premium_plan=premium_plan,
+		premium_search=premium_search,
+		max_rows=100,
+	)
+
+	dashboard_urls = {
+		"status_all": _build_dashboard_querystring(
+			range_key=range_key,
+			start_date=start_date,
+			end_date=end_date,
+			premium_status="all",
+			premium_plan=premium_plan,
+			premium_search=premium_search,
+		),
+		"status_active": _build_dashboard_querystring(
+			range_key=range_key,
+			start_date=start_date,
+			end_date=end_date,
+			premium_status="active",
+			premium_plan=premium_plan,
+			premium_search=premium_search,
+		),
+		"status_expired": _build_dashboard_querystring(
+			range_key=range_key,
+			start_date=start_date,
+			end_date=end_date,
+			premium_status="expired",
+			premium_plan=premium_plan,
+			premium_search=premium_search,
+		),
+		"plan_all": _build_dashboard_querystring(
+			range_key=range_key,
+			start_date=start_date,
+			end_date=end_date,
+			premium_status=premium_status,
+			premium_plan="all",
+			premium_search=premium_search,
+		),
+		"plan_weekly": _build_dashboard_querystring(
+			range_key=range_key,
+			start_date=start_date,
+			end_date=end_date,
+			premium_status=premium_status,
+			premium_plan="weekly",
+			premium_search=premium_search,
+		),
+		"plan_monthly": _build_dashboard_querystring(
+			range_key=range_key,
+			start_date=start_date,
+			end_date=end_date,
+			premium_status=premium_status,
+			premium_plan="monthly",
+			premium_search=premium_search,
+		),
+	}
+
 	context = {
 		**admin.site.each_context(request),
 		"title": "Admin Analytics Dashboard",
@@ -612,6 +841,14 @@ def _admin_dashboard_view(request):
 		"top_matches_by_revenue": top_matches_by_revenue,
 		"top_matches_by_purchases": top_matches_by_purchases,
 		"recent_purchases": recent_purchases,
+		"premium_users_overview": premium_data["rows"],
+		"premium_users_total_count": premium_data["total_count"],
+		"premium_users_filtered_count": premium_data["filtered_count"],
+		"premium_users_limited": premium_data["limited"],
+		"premium_filter_status": premium_status,
+		"premium_filter_plan": premium_plan,
+		"premium_filter_search": premium_search,
+		"dashboard_urls": dashboard_urls,
 		"start_date": start_date,
 		"end_date": end_date,
 		"range_key": range_key,

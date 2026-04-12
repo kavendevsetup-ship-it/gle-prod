@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Flame } from "lucide-react";
 
 import { getPricing, type PricingApiResponse } from "@/services/api";
 
@@ -352,7 +353,10 @@ export default function MatchesPage() {
                   {ENABLE_WEEKLY_PLAN ? (
                     <div className="rounded-xl border border-orange-300/80 bg-gradient-to-br from-orange-50 to-amber-50 p-4 shadow-lg">
                       {WEEKLY_OFFER_ACTIVE ? (
-                        <p className="text-xs font-semibold text-red-600 mb-1">🔥 Limited Time Offer</p>
+                        <p className="text-xs font-semibold text-red-600 mb-1 inline-flex items-center gap-1">
+                          <Flame className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>Limited Time Offer</span>
+                        </p>
                       ) : null}
                       <p className="text-base sm:text-lg font-bold text-gray-900">Weekly Access</p>
                       <div className="flex items-end gap-2 mt-1 mb-2">
